@@ -40,6 +40,10 @@ _LOGGER = logging.getLogger(__name__)
 
 #: Chờ tối đa ngần này giây sau phần tiếng TTS rồi coi như đã phát xong.
 _TTS_THEM_GIAY = 5.0
+#: Hai lượt pipeline cách nhau ít nhất ngần này giây, dù lượt trước kết thúc thế nào.
+_LUOT_TOI_THIEU = 1.0
+#: Pipeline lỗi (chưa có từ gọi, STT/TTS hỏng…) thì nghỉ, tăng dần tới mức này.
+_NGHI_LOI_TOI_DA = 60.0
 
 
 def loc_mic(tang_db: float) -> str:
@@ -78,6 +82,7 @@ class DahuaTalkSatellite(DahuaTalkEntity, AssistSatelliteEntity):
         self._vong: asyncio.Task | None = None
         self._mic_proc: asyncio.subprocess.Process | None = None
         self._mo_lai_mic = False         # tự tắt ffmpeg để đổi mức tăng mic
+        self._loi_luot: str | None = None  # lỗi pipeline của lượt vừa chạy
 
     # ── Cấu hình HA đòi ───────────────────────────────────────────────────────
 
@@ -147,6 +152,12 @@ class DahuaTalkSatellite(DahuaTalkEntity, AssistSatelliteEntity):
     async def _chay(self) -> None:
         mic = self._entry.async_create_background_task(self.hass, self._doc_mic(),
                                                        f"{self.entity_id} mic")
+        # Pipeline hỏng NGAY từ đầu (chưa có engine từ gọi, STT/TTS lỗi…) kết thúc
+        # trong vài mili-giây; mở lại tức thì là hàng nghìn lượt mỗi giây và HA treo
+        # cứng — đã xảy ra thật trên một máy HA ARM mới cài, pipeline chưa có từ gọi.
+        # Nên: lỗi thì nghỉ (tăng dần), và hai lượt luôn cách nhau tối thiểu.
+        nghi_loi = 0.0
+        loi_da_bao = None
         try:
             while True:
                 if self._data.mic_muted:
@@ -155,18 +166,38 @@ class DahuaTalkSatellite(DahuaTalkEntity, AssistSatelliteEntity):
                 bat_dau = PipelineStage.STT if self._tiep else PipelineStage.WAKE_WORD
                 self._tiep = False
                 self._co_tts = False
+                self._loi_luot = None
                 self._tts_xong.clear()
+                t0 = self.hass.loop.time()
                 try:
                     await self.async_accept_pipeline_from_satellite(
                         audio_stream=self._luong_stt(), start_stage=bat_dau)
                 except asyncio.CancelledError:
                     raise
-                except Exception:  # noqa: BLE001 — một lượt hỏng không được làm điếc vệ tinh
-                    _LOGGER.exception("%s: pipeline failed", self.entity_id)
-                    await asyncio.sleep(2)
-                    continue
-                if self._co_tts:
+                except Exception as exc:  # noqa: BLE001 — một lượt hỏng không được làm điếc vệ tinh
+                    _LOGGER.debug("%s: pipeline failed", self.entity_id, exc_info=True)
+                    self._loi_luot = str(exc) or type(exc).__name__
+                if self._co_tts and self._loi_luot is None:
                     await self._tts_xong.wait()
+                if self._tiep:
+                    # Bị cắt để hỏi–đáp tiếp (start_conversation / câu hỏi lại):
+                    # lượt sau phải nghe ngay, không nghỉ.
+                    nghi_loi = 0.0
+                    continue
+                if self._loi_luot is not None:
+                    nghi_loi = min(_NGHI_LOI_TOI_DA, max(5.0, nghi_loi * 2))
+                    if self._loi_luot != loi_da_bao:
+                        loi_da_bao = self._loi_luot
+                        _LOGGER.warning(
+                            "%s: Assist pipeline error (%s) — retrying every %.0f s. "
+                            "Check the pipeline selected for this camera (wake word "
+                            "engine, STT, TTS).", self.entity_id, self._loi_luot, nghi_loi)
+                    await asyncio.sleep(nghi_loi)
+                    continue
+                nghi_loi, loi_da_bao = 0.0, None
+                con = _LUOT_TOI_THIEU - (self.hass.loop.time() - t0)
+                if con > 0:
+                    await asyncio.sleep(con)
         finally:
             mic.cancel()
 
@@ -230,6 +261,8 @@ class DahuaTalkSatellite(DahuaTalkEntity, AssistSatelliteEntity):
             # Không đụng ``_tiep``: lượt chờ từ gọi bị cắt (bắt đầu hội thoại) cũng
             # báo lỗi, mà lượt sau vẫn phải nghe thẳng.
             _LOGGER.debug("%s: pipeline error %s", self.entity_id, event.data)
+            d = event.data or {}
+            self._loi_luot = str(d.get("message") or d.get("code") or "error")
             self._tts_xong.set()
 
     async def _phat_tts(self, luong: tts.ResultStream) -> None:

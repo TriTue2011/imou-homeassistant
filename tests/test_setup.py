@@ -72,7 +72,8 @@ async def test_cau_tra_loi_hoi_lai_thi_luot_sau_nghe_thang(hass):
     with mock.patch.object(sat.DahuaTalkSatellite, "async_accept_pipeline_from_satellite", gia_accept), \
             mock.patch.object(sat.DahuaTalkSatellite, "_doc_mic", mic_gia):
         await _nap(hass, muc)
-        for _ in range(50):
+        # Lượt hỏi lại (STT) chạy NGAY; lượt thường sau đó cách tối thiểu 1 giây.
+        for _ in range(300):
             if len(lan) >= 3:
                 break
             await asyncio.sleep(0.01)
@@ -138,3 +139,52 @@ async def test_tang_mic_ap_vao_ffmpeg_va_doi_la_mo_lai(hass):
         assert muc.runtime_data.mic_gain_db == 18
         await hass.config_entries.async_unload(muc.entry_id)
     assert any(a.startswith("highpass=f=80,volume=18dB") for a in lenh_da_chay[1])
+
+
+async def test_pipeline_loi_ngay_khong_quay_vong_lam_treo_ha(hass, caplog):
+    """Sự cố thật: HA mới cài, pipeline chưa có từ gọi → pipeline báo lỗi và kết thúc
+    trong vài mili-giây; vòng nghe mở lại tức thì → hàng nghìn lượt/giây, HA treo cứng.
+    Nay lỗi thì nghỉ (5 s, tăng dần) và báo MỘT dòng cảnh báo."""
+    muc = _muc(mic="http://mic")
+    lan = []
+
+    async def accept_loi(self, audio_stream, start_stage=PipelineStage.STT, **_kw):
+        lan.append(start_stage)
+        self.on_pipeline_event(PipelineEvent(PipelineEventType.ERROR,
+                                             {"code": "wake-engine-missing",
+                                              "message": "No wake word engine"}))
+
+    async def mic_gia(self):
+        await asyncio.Event().wait()
+
+    from custom_components.dahua_talk import assist_satellite as sat
+    with mock.patch.object(sat.DahuaTalkSatellite, "async_accept_pipeline_from_satellite", accept_loi), \
+            mock.patch.object(sat.DahuaTalkSatellite, "_doc_mic", mic_gia):
+        await _nap(hass, muc)
+        await asyncio.sleep(0.5)
+        so_lan = len(lan)
+        await hass.config_entries.async_unload(muc.entry_id)
+    assert so_lan == 1, f"{so_lan} lượt trong 0,5 s — vòng nghe đang quay vòng"
+    canh_bao = [r for r in caplog.records if "Assist pipeline error" in r.getMessage()]
+    assert len(canh_bao) == 1 and "No wake word engine" in canh_bao[0].getMessage()
+
+
+async def test_pipeline_ket_thuc_ngay_khong_loi_van_cach_toi_thieu(hass):
+    """Kể cả lượt kết thúc ngay mà KHÔNG báo lỗi, hai lượt vẫn cách nhau ≥ 1 giây."""
+    muc = _muc(mic="http://mic")
+    lan = []
+
+    async def accept_ngay(self, audio_stream, start_stage=PipelineStage.STT, **_kw):
+        lan.append(start_stage)
+
+    async def mic_gia(self):
+        await asyncio.Event().wait()
+
+    from custom_components.dahua_talk import assist_satellite as sat
+    with mock.patch.object(sat.DahuaTalkSatellite, "async_accept_pipeline_from_satellite", accept_ngay), \
+            mock.patch.object(sat.DahuaTalkSatellite, "_doc_mic", mic_gia):
+        await _nap(hass, muc)
+        await asyncio.sleep(0.5)
+        so_lan = len(lan)
+        await hass.config_entries.async_unload(muc.entry_id)
+    assert so_lan == 1

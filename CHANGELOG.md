@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.1 - 2026-09-25
+
+### Sửa: HA treo cứng khi pipeline Assist lỗi ngay từ đầu
+Có *URL tiếng mic* mà pipeline chưa dùng được (chưa có engine từ gọi — vd máy mới
+cài chưa có openWakeWord — hoặc STT/TTS hỏng), pipeline báo lỗi và kết thúc trong vài
+mili-giây; vệ tinh mở lại tức thì, hàng nghìn lượt mỗi giây, làm HA treo cứng (thêm
+camera thì hộp thoại quay mãi). Nay pipeline lỗi thì vệ tinh nghỉ 5 giây, tăng dần tới
+60 giây, ghi **một** dòng cảnh báo nói rõ lỗi; hai lượt luôn cách nhau ít nhất 1 giây.
+
 ## 0.1.0 - 2026-09-25
 
 Bản công khai đầu tiên.
