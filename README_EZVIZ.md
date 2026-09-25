@@ -50,17 +50,19 @@ có kênh ngược.
 
 ## Thêm camera vào tích hợp
 
-Cài đặt → Thiết bị & dịch vụ → **Thêm tích hợp** → **Dahua/Imou Talk**:
+Cài đặt → Thiết bị & dịch vụ → **Thêm tích hợp** → **Dahua/Imou Talk** → chọn loại
+**EZVIZ**. Chỉ phải điền:
 
 | Ô | Điền |
 |---|---|
 | Tên | vd `Cam EZVIZ` |
 | IP camera | IP trong mạng nhà |
-| **Cách nói ra loa** | **RTSP/ONVIF — EZVIZ, Hikvision, camera ONVIF** |
-| Cổng nói | `554` (để nguyên `37777` thì tích hợp tự hiểu là 554) |
-| Đường dẫn RTSP | `/Streaming/Channels/101` |
-| Tài khoản / Mật khẩu | `admin` / mã xác minh |
+| Mã xác minh | 6 chữ IN HOA trên tem dưới đáy camera |
 | URL tiếng mic | để trống nếu chỉ cần loa + bộ đàm — xem [Vệ tinh Assist](#vệ-tinh-assist) |
+
+Tài khoản `admin`, cổng `554`, luồng `/Streaming/Channels/101` tích hợp tự điền. Camera
+Hikvision / ONVIF khác (đường dẫn luồng khác) thì chọn loại **Hikvision / camera ONVIF
+khác** — có đủ ô cổng, đường dẫn, tài khoản.
 
 Lúc bấm gửi, tích hợp **chỉ hỏi** camera có kênh ngược không (không phát tiếng):
 

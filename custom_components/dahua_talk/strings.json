@@ -2,30 +2,59 @@
   "config": {
     "step": {
       "user": {
-        "title": "Add a Dahua/Imou camera",
-        "description": "Imou/Dahua: talks over TCP 37777. EZVIZ/Hikvision/ONVIF: pick \"RTSP/ONVIF\", port 554 (37777 left as is means 554) and the main stream path. The mic URL is optional, e.g. http://HOST:1984/api/stream.mp4?src=cam-sub&video=none&audio=all",
+        "title": "Choose the camera type",
+        "description": "Each type only asks for what it needs.",
+        "menu_options": {
+          "imou": "Imou / Dahua",
+          "ezviz": "EZVIZ",
+          "onvif": "Hikvision / other ONVIF camera"
+        }
+      },
+      "imou": {
+        "title": "Imou / Dahua camera",
+        "description": "The speaker talks over the camera's TCP port 37777. Password: device password or the safety code on the label. Fill the mic URL only for the Assist satellite, e.g. http://HOST:1984/api/stream.mp4?src=cam-sub&video=none&audio=all",
         "data": {
           "name": "Name",
           "host": "Camera IP",
           "port": "Talk port",
           "username": "Username",
           "password": "Password",
-          "mic_url": "Mic audio URL",
-          "talk_protocol": "Talk protocol",
-          "rtsp_path": "RTSP path (RTSP talk only)"
+          "mic_url": "Mic audio URL (optional)"
+        }
+      },
+      "ezviz": {
+        "title": "EZVIZ camera",
+        "description": "The speaker talks over the RTSP audio backchannel (port 554, user admin — filled in). The password is the VERIFICATION CODE: 6 capital letters on the label under the camera. Fill the mic URL only for the Assist satellite, e.g. http://HOST:1984/api/stream.mp4?src=cam-sub&video=none&audio=all",
+        "data": {
+          "name": "Name",
+          "host": "Camera IP",
+          "password": "Verification code (6 capital letters on the label)",
+          "mic_url": "Mic audio URL (optional)"
+        }
+      },
+      "onvif": {
+        "title": "Hikvision / ONVIF camera",
+        "description": "The speaker talks over the RTSP/ONVIF audio backchannel. Hikvision main stream: /Streaming/Channels/101. Fill the mic URL only for the Assist satellite.",
+        "data": {
+          "name": "Name",
+          "host": "Camera IP",
+          "port": "Talk port",
+          "rtsp_path": "RTSP stream path",
+          "username": "Username",
+          "password": "Password",
+          "mic_url": "Mic audio URL (optional)"
         }
       },
       "reconfigure": {
         "title": "Reconfigure camera",
-        "description": "Change the camera address, account or mic URL. The intercom key is kept — the exec: line already in go2rtc.yaml keeps working. Leave the password empty to keep the current one.",
+        "description": "The intercom key is kept — the exec: line already in go2rtc.yaml keeps working. Leave the password empty to keep the current one.",
         "data": {
           "host": "Camera IP",
           "port": "Talk port",
+          "rtsp_path": "RTSP stream path",
           "username": "Username",
-          "password": "Password (empty = keep current)",
-          "mic_url": "Mic audio URL",
-          "talk_protocol": "Talk protocol",
-          "rtsp_path": "RTSP path (RTSP talk only)"
+          "mic_url": "Mic audio URL (optional)",
+          "password": "Password / verification code (empty = keep)"
         }
       }
     },
@@ -33,7 +62,7 @@
       "invalid_auth": "The camera refused the login (it locks the session after a few wrong passwords — check before retrying).",
       "cannot_connect": "Cannot reach the camera's talk port.",
       "invalid_mic_url": "Mic URL must start with rtsp://, http:// or https://",
-      "no_backchannel": "The camera speaks RTSP but this stream has no audio backchannel (no speaker, or wrong RTSP path)."
+      "no_backchannel": "The camera speaks RTSP but this stream has no audio backchannel (no speaker, or wrong stream path)."
     },
     "abort": {
       "already_configured": "This camera is already added.",
@@ -86,14 +115,6 @@
           "name": "HA address for go2rtc",
           "description": "Leave empty when go2rtc shares HA's network (go2rtc add-on). go2rtc on another machine/VM or inside Frigate: HA's LAN address, e.g. http://192.168.1.10:8123."
         }
-      }
-    }
-  },
-  "selector": {
-    "talk_protocol": {
-      "options": {
-        "dahua": "Dahua/Imou — port 37777",
-        "rtsp": "RTSP/ONVIF — EZVIZ, Hikvision, ONVIF cameras"
       }
     }
   }

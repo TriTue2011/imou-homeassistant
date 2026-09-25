@@ -11,6 +11,11 @@ CONF_TALK = "talk_protocol"
 TALK_DAHUA = "dahua"
 TALK_RTSP = "rtsp"
 CONF_RTSP_PATH = "rtsp_path"
+#: Loại camera chọn lúc thêm — quyết định những ô cần điền và cách nói.
+CONF_LOAI = "camera_type"
+LOAI_IMOU = "imou"
+LOAI_EZVIZ = "ezviz"
+LOAI_ONVIF = "onvif"
 DEFAULT_RTSP_PORT = 554
 DEFAULT_RTSP_PATH = "/Streaming/Channels/101"
 

@@ -13,11 +13,13 @@ NHAP = {"name": "Cam cửa", "host": "192.168.1.64", "port": 37777, "username": 
         "password": "mk", "mic_url": "http://192.168.1.10:1984/api/stream.mp4?src=front_sub&video=none&audio=all"}
 
 
-async def _mo(hass):
+async def _mo(hass, loai="imou"):
     # assist_pipeline cần conversation, conversation cần lõi "homeassistant" dựng trước.
     assert await async_setup_component(hass, "homeassistant", {})
     kq = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
-    assert kq["type"] is FlowResultType.FORM
+    assert kq["type"] is FlowResultType.MENU and kq["menu_options"] == ["imou", "ezviz", "onvif"]
+    kq = await hass.config_entries.flow.async_configure(kq["flow_id"], {"next_step_id": loai})
+    assert kq["type"] is FlowResultType.FORM and kq["step_id"] == loai
     return kq["flow_id"]
 
 
@@ -131,27 +133,56 @@ async def test_sua_url_mic_sai(hass):
 
 # ── Camera EZVIZ / Hikvision / ONVIF: nói qua kênh tiếng ngược RTSP ─────────────────────
 
-async def test_them_camera_rtsp_cong_mac_dinh_thanh_554(hass):
-    flow = await _mo(hass)
+async def test_ezviz_chi_hoi_ip_va_ma_xac_minh(hass):
+    flow = await _mo(hass, "ezviz")
     with mock.patch("custom_components.dahua_talk.config_flow.check_rtsp_talk") as hoi, \
             mock.patch("custom_components.dahua_talk.config_flow.check_login") as dn, \
             mock.patch("custom_components.dahua_talk.async_setup_entry", return_value=True):
         kq = await hass.config_entries.flow.async_configure(
-            flow, {**NHAP, "name": "Cam EZVIZ", "host": "192.168.1.203", "talk_protocol": "rtsp",
-                   "rtsp_path": "Streaming/Channels/101"})
+            flow, {"name": "Cam EZVIZ", "host": "192.168.1.203", "password": "ABCDEF"})
     assert kq["type"] is FlowResultType.CREATE_ENTRY
-    assert kq["data"]["port"] == 554 and kq["data"]["rtsp_path"] == "/Streaming/Channels/101"
-    hoi.assert_called_once_with("192.168.1.203", "admin", "mk", 554, "/Streaming/Channels/101")
+    d = kq["data"]
+    assert (d["camera_type"], d["talk_protocol"], d["port"], d["username"], d["rtsp_path"]) == \
+        ("ezviz", "rtsp", 554, "admin", "/Streaming/Channels/101")
+    hoi.assert_called_once_with("192.168.1.203", "admin", "ABCDEF", 554, "/Streaming/Channels/101")
     dn.assert_not_called()
 
 
-async def test_rtsp_khong_co_kenh_nguoc_bao_rieng(hass):
+async def test_form_ezviz_khong_co_o_tai_khoan_cong(hass):
+    assert await async_setup_component(hass, "homeassistant", {})
+    kq = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+    kq = await hass.config_entries.flow.async_configure(kq["flow_id"], {"next_step_id": "ezviz"})
+    o = [str(k) for k in kq["data_schema"].schema]
+    assert o == ["name", "host", "password", "mic_url"]
+
+
+async def test_onvif_khong_co_kenh_nguoc_bao_rieng(hass):
     from custom_components.dahua_talk.rtsp_talk import NoBackchannelError
-    flow = await _mo(hass)
+    flow = await _mo(hass, "onvif")
     with mock.patch("custom_components.dahua_talk.config_flow.check_rtsp_talk",
                     side_effect=NoBackchannelError("x")):
-        kq = await hass.config_entries.flow.async_configure(flow, {**NHAP, "talk_protocol": "rtsp"})
+        kq = await hass.config_entries.flow.async_configure(flow, {
+            "name": "Cam", "host": "192.168.1.9", "port": 554, "rtsp_path": "Streaming/Channels/101",
+            "username": "admin", "password": "mk"})
     assert kq["errors"] == {"base": "no_backchannel"}
+
+
+async def test_cau_hinh_lai_ezviz_dung_o_cua_ezviz(hass):
+    assert await async_setup_component(hass, "homeassistant", {})
+    entry = MockConfigEntry(domain=DOMAIN, title="Cam EZVIZ", unique_id="192.168.1.203:554", data={
+        "name": "Cam EZVIZ", "host": "192.168.1.203", "camera_type": "ezviz", "talk_protocol": "rtsp",
+        "port": 554, "username": "admin", "password": "ABCDEF",
+        "rtsp_path": "/Streaming/Channels/101", "mic_url": "", "intercom_key": KHOA})
+    entry.add_to_hass(hass)
+    kq = await entry.start_reconfigure_flow(hass)
+    assert [str(k) for k in kq["data_schema"].schema] == ["host", "password", "mic_url"]
+    with mock.patch("custom_components.dahua_talk.config_flow.check_rtsp_talk") as hoi, \
+            mock.patch("custom_components.dahua_talk.async_setup_entry", return_value=True):
+        kq = await hass.config_entries.flow.async_configure(
+            kq["flow_id"], {"host": "192.168.1.204", "password": "", "mic_url": ""})
+    assert kq["reason"] == "reconfigure_successful"
+    hoi.assert_called_once_with("192.168.1.204", "admin", "ABCDEF", 554, "/Streaming/Channels/101")
+    assert entry.data["intercom_key"] == KHOA and entry.unique_id == "192.168.1.204:554"
 
 
 def test_chon_phien_noi_theo_cau_hinh():

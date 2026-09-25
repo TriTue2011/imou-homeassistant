@@ -2,30 +2,59 @@
   "config": {
     "step": {
       "user": {
-        "title": "Thêm camera Dahua/Imou",
-        "description": "Imou/Dahua: nói qua cổng 37777. EZVIZ/Hikvision/ONVIF: chọn \"RTSP/ONVIF\", cổng 554 (để 37777 thì tự hiểu là 554), đường dẫn luồng chính. URL mic không bắt buộc, ví dụ http://MÁY:1984/api/stream.mp4?src=cam-sub&video=none&audio=all",
+        "title": "Chọn loại camera",
+        "description": "Mỗi loại chỉ hỏi đúng những thông số nó cần.",
+        "menu_options": {
+          "imou": "Imou / Dahua",
+          "ezviz": "EZVIZ",
+          "onvif": "Hikvision / camera ONVIF khác"
+        }
+      },
+      "imou": {
+        "title": "Camera Imou / Dahua",
+        "description": "Loa nói qua cổng 37777 của camera. Mật khẩu: mật khẩu thiết bị hoặc mã an toàn in trên tem. URL mic chỉ điền khi dùng vệ tinh Assist, ví dụ http://MÁY:1984/api/stream.mp4?src=cam-sub&video=none&audio=all",
         "data": {
           "name": "Tên",
           "host": "IP camera",
           "port": "Cổng nói",
           "username": "Tài khoản",
           "password": "Mật khẩu",
-          "mic_url": "URL tiếng mic",
-          "talk_protocol": "Cách nói ra loa",
-          "rtsp_path": "Đường dẫn RTSP (chỉ khi nói qua RTSP)"
+          "mic_url": "URL tiếng mic (không bắt buộc)"
+        }
+      },
+      "ezviz": {
+        "title": "Camera EZVIZ",
+        "description": "Loa nói qua kênh tiếng ngược RTSP (cổng 554, tài khoản admin — tự điền). Mật khẩu là MÃ XÁC MINH: 6 chữ IN HOA trên tem dưới đáy camera. URL mic chỉ điền khi dùng vệ tinh Assist, ví dụ http://MÁY:1984/api/stream.mp4?src=cam-sub&video=none&audio=all",
+        "data": {
+          "name": "Tên",
+          "host": "IP camera",
+          "password": "Mã xác minh (6 chữ IN HOA trên tem)",
+          "mic_url": "URL tiếng mic (không bắt buộc)"
+        }
+      },
+      "onvif": {
+        "title": "Camera Hikvision / ONVIF",
+        "description": "Loa nói qua kênh tiếng ngược RTSP/ONVIF. Hikvision: luồng chính /Streaming/Channels/101. URL mic chỉ điền khi dùng vệ tinh Assist.",
+        "data": {
+          "name": "Tên",
+          "host": "IP camera",
+          "port": "Cổng nói",
+          "rtsp_path": "Đường dẫn luồng RTSP",
+          "username": "Tài khoản",
+          "password": "Mật khẩu",
+          "mic_url": "URL tiếng mic (không bắt buộc)"
         }
       },
       "reconfigure": {
         "title": "Cấu hình lại camera",
-        "description": "Sửa IP, tài khoản hoặc URL tiếng mic. Khoá bộ đàm được GIỮ — dòng exec: đã dán trong go2rtc.yaml vẫn dùng được. Để trống mật khẩu là giữ mật khẩu cũ.",
+        "description": "Khoá bộ đàm được GIỮ — dòng exec: đã dán trong go2rtc.yaml vẫn dùng được. Để trống mật khẩu là giữ mật khẩu cũ.",
         "data": {
           "host": "IP camera",
           "port": "Cổng nói",
+          "rtsp_path": "Đường dẫn luồng RTSP",
           "username": "Tài khoản",
-          "password": "Mật khẩu (trống = giữ cũ)",
-          "mic_url": "URL tiếng mic",
-          "talk_protocol": "Cách nói ra loa",
-          "rtsp_path": "Đường dẫn RTSP (chỉ khi nói qua RTSP)"
+          "mic_url": "URL tiếng mic (không bắt buộc)",
+          "password": "Mật khẩu / mã xác minh (trống = giữ cũ)"
         }
       }
     },
@@ -33,7 +62,7 @@
       "invalid_auth": "Camera từ chối đăng nhập (sai vài lần là camera khoá phiên — kiểm kỹ trước khi thử lại).",
       "cannot_connect": "Không nối được cổng nói của camera.",
       "invalid_mic_url": "URL mic phải bắt đầu bằng rtsp://, http:// hoặc https://",
-      "no_backchannel": "Camera nói RTSP nhưng luồng này không có kênh tiếng ngược (camera không có loa, hoặc sai đường dẫn RTSP)."
+      "no_backchannel": "Camera nói RTSP nhưng luồng này không có kênh tiếng ngược (camera không có loa, hoặc sai đường dẫn luồng)."
     },
     "abort": {
       "already_configured": "Camera này đã được thêm.",
@@ -86,14 +115,6 @@
           "name": "Địa chỉ HA cho go2rtc",
           "description": "Bỏ trống nếu go2rtc chạy chung mạng với HA (add-on go2rtc). go2rtc ở máy/VM khác hoặc trong Frigate: điền địa chỉ LAN của HA, vd http://192.168.1.10:8123."
         }
-      }
-    }
-  },
-  "selector": {
-    "talk_protocol": {
-      "options": {
-        "dahua": "Dahua/Imou — cổng 37777",
-        "rtsp": "RTSP/ONVIF — EZVIZ, Hikvision, camera ONVIF"
       }
     }
   }

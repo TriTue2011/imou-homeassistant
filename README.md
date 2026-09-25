@@ -116,15 +116,21 @@ không đều được.
 `/config/custom_components/dahua_talk` rồi khởi động lại HA.
 
 Sau đó: Cài đặt → Thiết bị & dịch vụ → Thêm tích hợp → **Dahua/Imou Talk**, mỗi
-camera một lần:
+camera một lần. Bước đầu **chọn loại camera** — mỗi loại chỉ hỏi đúng ô nó cần:
+
+| Loại | Hỏi những ô |
+|---|---|
+| **Imou / Dahua** | Tên, IP, cổng nói (`37777`), tài khoản, mật khẩu, URL tiếng mic |
+| **EZVIZ** | Tên, IP, **mã xác minh**, URL tiếng mic — tài khoản `admin`, cổng 554, luồng tự điền. Xem [README_EZVIZ.md](README_EZVIZ.md) |
+| **Hikvision / camera ONVIF khác** | Tên, IP, cổng RTSP (`554`), đường dẫn luồng, tài khoản, mật khẩu, URL tiếng mic |
+
+Các ô của Imou / Dahua:
 
 | Ô | Điền |
 |---|---|
 | Tên | Tên camera (vd *Cam cửa*) |
 | IP camera | IP camera trong mạng nhà |
-| Cách nói ra loa | **Dahua/Imou — cổng 37777** (camera Imou/Dahua). EZVIZ/Hikvision/ONVIF: chọn **RTSP/ONVIF** — [README_EZVIZ.md](README_EZVIZ.md) |
-| Cổng nói | `37777` (RTSP: `554`) |
-| Đường dẫn RTSP | Chỉ dùng khi nói qua RTSP, vd `/Streaming/Channels/101` |
+| Cổng nói | `37777` |
 | Tài khoản, Mật khẩu | Tài khoản camera (thường `admin` + mật khẩu thiết bị / mã an toàn in trên tem) |
 | URL tiếng mic | **Không bắt buộc.** Có go2rtc: `http://IP_GO2RTC:1984/api/stream.mp4?src=TEN_LUONG_PHU&video=none&audio=all`. Hoặc URL RTSP luồng phụ của camera. **Bỏ trống thì chỉ dùng loa và bộ đàm** — vệ tinh Assist không nghe gì. |
 

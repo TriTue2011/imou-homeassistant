@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.1 - 2026-09-26
+
+### Thêm camera: chọn LOẠI camera trước
+Bước đầu là menu **Imou / Dahua**, **EZVIZ**, **Hikvision / camera ONVIF khác**; mỗi loại
+chỉ hỏi đúng ô nó cần. EZVIZ chỉ còn Tên, IP, **mã xác minh**, URL mic — tài khoản `admin`,
+cổng 554, luồng `/Streaming/Channels/101` tự điền. "Cấu hình lại" hiện đúng ô của loại
+camera đã chọn. Mục thêm từ bản cũ tự nhận loại (Dahua → Imou, RTSP → ONVIF).
+
+### Đã gửi tiếng thật tới camera EZVIZ
+Câu thử 5 giây (giọng TTS) gửi bằng đúng `RtspTalkSession` của tích hợp: camera mở kênh
+trong 0,25 giây, nhận đủ, không lỗi. Chờ xác nhận nghe được ở loa.
+
 ## 0.2.0 - 2026-09-26
 
 ### Camera EZVIZ / Hikvision / ONVIF: nói qua kênh tiếng ngược RTSP
