@@ -30,11 +30,12 @@ giao diện thì theo ngôn ngữ của HA (*Loa*, *Tăng mic*, *Tắt mic*…).
 5. [Vệ tinh Assist, từ gọi, tăng mic](#vệ-tinh-assist-từ-gọi-tăng-mic)
 6. [Bộ đàm](#bộ-đàm)
 7. [Xem và nói từ xa (4G)](#xem-và-nói-từ-xa-4g)
-8. [Dùng cùng Frigate](#dùng-cùng-frigate)
-9. [Bảo mật](#bảo-mật)
-10. [Sự cố thường gặp](#sự-cố-thường-gặp)
-11. [Giới hạn](#giới-hạn)
-12. [Phát triển và test](#phát-triển-và-test)
+8. [Ví dụ trọn vẹn: HA Container, mạng 172.16, MikroTik có VPN](#ví-dụ-trọn-vẹn-ha-container-mạng-17216-mikrotik-có-vpn)
+9. [Dùng cùng Frigate](#dùng-cùng-frigate)
+10. [Bảo mật](#bảo-mật)
+11. [Sự cố thường gặp](#sự-cố-thường-gặp)
+12. [Giới hạn](#giới-hạn)
+13. [Phát triển và test](#phát-triển-và-test)
 
 ---
 
@@ -543,7 +544,7 @@ webrtc:
     - stun:8555
   filters:
     ips:
-      - 172.16.10.20        # IP LAN của máy chạy go2rtc
+      - 172.16.1.20         # IP LAN của máy chạy go2rtc
       # - 100.101.102.103   # thêm IP Tailscale nếu vẫn muốn xem qua Tailscale
 ```
 
@@ -560,6 +561,76 @@ lại phải bật VPN mỗi lần dùng.
 **Cloudflare Tunnel / proxy Cloudflare (đám mây cam) / Nabu Casa chỉ chở trang web
 của HA**, không chở WebRTC — xem từ xa qua chúng vẫn có hình (MSE) nhưng **không có
 mic**.
+
+---
+
+## Ví dụ trọn vẹn: HA Container, mạng 172.16, MikroTik có VPN
+
+Một ca cài thật, ghi lại **đúng thứ tự các lỗi đã gặp** — mỗi lỗi sửa xong mới lộ lỗi
+sau. Nhà bạn giống một phần là làm theo phần đó.
+
+**Hoàn cảnh:** HA bản **Container** (không có add-on); go2rtc **do tích hợp WebRTC
+Camera tự chạy** trong HA, cấu hình ở `/config/go2rtc.yaml`; mạng nhà `172.16.1.0/24`,
+máy HA `172.16.1.20`; router **MikroTik** quay PPPoE, IP công khai thật, và đẩy **cả
+mạng nhà ra internet qua VPN** bằng mangle; máy HA có thêm card mạng **Tailscale**
+(có khi chủ nhà không nhớ đã cài). Xem và nói qua **4G** bằng app HA Companion
+(Android), HA mở từ ngoài bằng tên miền https qua Cloudflare Tunnel.
+
+### Cài đặt
+
+1. **Tích hợp:** HACS → Custom repositories → thêm repo này (Integration) → tải
+   **Dahua/Imou Talk** → khởi động lại HA → Thêm tích hợp, mỗi camera một lần. *URL
+   tiếng mic* **để trống** nếu chỉ cần loa + bộ đàm.
+2. **Thử loa:** `tts.speak` tới `media_player.<camera>_speaker`.
+3. **Dòng bộ đàm:** `dahua_talk.get_intercom_source` với `ha_url` **để trống**
+   (go2rtc chạy ngay trong HA → `127.0.0.1` là HA).
+4. **`/config/go2rtc.yaml`** — dán dòng `exec` vào luồng camera (một luồng chỉ **một**
+   dòng `exec` bộ đàm), và khai `webrtc:` **đủ cả `filters: ips`** (lý do ở lỗi 4):
+
+   ```yaml
+   streams:
+     phong_khach:
+       - rtsp://admin:MATKHAU@172.16.1.64/cam/realmonitor?channel=1&subtype=0
+       - ffmpeg:phong_khach#audio=opus
+       - "exec:ffmpeg … #backchannel=1#audio=alaw/8000"
+   webrtc:
+     listen: ":8555/tcp"
+     candidates:
+       - stun:8555
+     filters:
+       ips:
+         - 172.16.1.20
+       udp_ports: [50000, 50500]
+   ```
+   Khởi động lại HA để go2rtc đọc lại tệp.
+5. **Thẻ:** cấu hình 🔇/🎙️ ở [Bước 3](#bước-3--thẻ-webrtc-camera). Chỉ thẻ của camera
+   có dòng `exec` mới có mục 🎙️.
+6. **MikroTik:** chuyển cổng 8555/TCP về máy HA và cho riêng máy HA **đi thẳng mạng
+   nhà** (lỗi 2 và 3 bên dưới).
+
+### Các lỗi đã gặp, theo thứ tự
+
+| # | Hiện tượng | Nguyên nhân | Sửa |
+|---|---|---|---|
+| 1 | Trong nhà nói được; 4G có hình có tiếng, **không mic**; ~30 giây sau thẻ bỏ WebRTC, giữ MSE | Router chưa chuyển cổng 8555 | Luật `dst-nat` 8555/TCP — [Mở cổng](#mở-cổng-trên-router). |
+| 2 | Đã mở cổng, bộ đếm gói của luật NAT **đứng yên** khi mở thẻ bằng 4G | go2rtc hỏi STUN mà máy HA ra internet **qua VPN** → báo cho điện thoại **IP của VPN**; điện thoại gọi sang đó, không về nhà | Mangle `accept` cho riêng máy HA, **đứng đầu** — [Router đẩy máy HA qua VPN](#router-đẩy-máy-ha-qua-vpn). Kiểm: dòng `a=candidate … 8555` phải là IP WAN của router. |
+| 3 | Gõ lệnh MikroTik báo lỗi, hoặc không báo mà luật không chạy | Gõ tay sai (`interface-list=`, `chain=dstnat` trong filter) | Dán nguyên dòng — [lỗi hay gặp khi gõ tay](#mở-cổng-trên-router). |
+| 4 | Cổng **mở thật** (check-host.net nối được), bộ đếm NAT **có tăng** khi mở thẻ, mà WebRTC vẫn không nối — lúc được lúc không | Mạng `172.16.x.x` + máy có card **Tailscale** → go2rtc tưởng `172.16.1.20` là Docker, **bỏ qua IP LAN của chính nó**, không trả lời kết nối từ 4G. Lúc "được" có lẽ là khi mạng 4G tình cờ cho đi đường UDP (chưa kiểm chứng). | `webrtc: filters: ips: [172.16.1.20]` — [go2rtc bỏ qua IP LAN](#go2rtc-bỏ-qua-ip-lan-của-chính-nó). Sửa xong nối trong **0,3 giây**. |
+| 5 | Lệnh kiểm MikroTik `print stats where dst-port=8555` **không in gì** dù luật có | Lọc theo cổng không khớp ở lệnh này | Lọc theo tên: `/ip firewall nat export where comment~"WebRTC"`. |
+| 6 | Kiểm cổng từ máy trong nhà báo **không nối được** dù điện thoại 4G nối được | Gói từ trong nhà đi vòng qua VPN / không quay đầu (hairpin) về được | Kiểm **từ ngoài**: check-host.net, hoặc đếm gói NAT khi mở thẻ bằng 4G. |
+| 7 | Máy tính trong nhà mở HA bằng `http://IP:8123`: thẻ camera nối đi nối lại, console báo `getUserMedia` | Trình duyệt cấm mic trên http | Mở bằng tên miền https, hoặc để thẻ ở 🔇. |
+| 8 | Một trang 4 camera, **mic điện thoại mở suốt** (chấm xanh) | Thẻ nào có `microphone` là xin mic ngay khi hiện | Mục 🔇/🎙️; chỉ camera có `exec` mới có 🎙️. |
+| 9 | Luồng khác có dòng `exec:ffmpeg -f dshow -i "audio=Microphone …"` | Chép từ ví dụ **Windows** của tài liệu go2rtc — không chạy trên Linux, cũng không phải bộ đàm | Xoá dòng đó. |
+| 10 | Dán cấu hình go2rtc / `api/streams` ra ngoài để hỏi | Lộ **mật khẩu camera** (nằm trong URL `rtsp://`) và khoá bộ đàm | Che `admin:…@` và `k=…` trước khi dán; lỡ lộ thì đổi mật khẩu camera, lấy lại dòng bộ đàm. |
+
+**Cách tự kiểm từng khâu** (đi từ ngoài vào):
+
+1. Cổng: check-host.net → `IP_WAN:8555` phải nối được.
+2. Router: `/ip firewall nat print stats` — mở thẻ bằng 4G, số gói của luật 8555 phải tăng.
+3. go2rtc báo địa chỉ: đoạn Python ở [mục VPN](#router-đẩy-máy-ha-qua-vpn), in mọi dòng
+   `a=candidate` — phải có **IP WAN** (cổng 8555) **và IP LAN** của máy HA.
+4. Phiên của điện thoại: `http://IP_HA:1984/api/streams?src=phong_khach` → `consumers`
+   có mục `webrtc` với `remote_addr` là IP 4G, ở lại quá 30 giây là đã nối.
 
 ---
 
