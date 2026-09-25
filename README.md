@@ -252,6 +252,7 @@ HA, nên chỉ cần hai bên thấy nhau trong mạng nhà.
 | Cách cài | `ha_url` | Vì sao |
 |---|---|---|
 | **HA OS + add-on go2rtc** | **bỏ trống** (dùng `127.0.0.1`) | Add-on go2rtc chạy mạng *host*, cùng máy với HA — `127.0.0.1` chính là HA. Tiếng không ra khỏi máy. |
+| **go2rtc do tích hợp WebRTC Camera tự chạy** (không có add-on go2rtc — hay gặp với HA Container) | **bỏ trống** | Tích hợp WebRTC Camera tự tải và chạy go2rtc **ngay trong máy/container của HA**, đọc `/config/go2rtc.yaml`. Cùng chỗ với HA nên `127.0.0.1` là HA. Sửa `go2rtc.yaml` xong thì khởi động lại HA để go2rtc đọc lại. |
 | **HA Container + go2rtc container, cùng máy, cả hai `network_mode: host`** | **bỏ trống** | Như trên: cùng mạng của máy chủ. |
 | **Cùng máy, nhưng go2rtc ở mạng *bridge*** (mặc định của Docker) | `http://IP_LAN_CỦA_MÁY:8123` | `127.0.0.1` trong container bridge là **chính container go2rtc**, không phải HA. Dùng IP LAN của máy, hoặc `http://host.docker.internal:8123` (trên Linux phải thêm `extra_hosts: ["host.docker.internal:host-gateway"]` cho container go2rtc). |
 | **Hai máy / hai VM — kiểu Proxmox** (HA một VM, go2rtc ở VM/LXC khác) | `http://IP_LAN_CỦA_HA:8123` | Hai máy khác nhau nên `127.0.0.1` sai. Đặt IP tĩnh (hoặc giữ chỗ DHCP) cho HA, kẻo đổi IP là dòng go2rtc hỏng. |
@@ -295,19 +296,50 @@ Khởi động lại go2rtc (add-on: Cài đặt → Add-on → go2rtc → Khở
 
 ### Bước 3 — thẻ WebRTC Camera
 
+**Nên dùng — có nút bật/tắt mic:**
+
+```yaml
+type: custom:webrtc-camera
+ui: true
+streams:
+  - url: cam_cua
+    name: 🔇
+    media: video,audio
+  - url: cam_cua
+    name: 🎙️
+    media: video,audio,microphone
+style: |
+  .screenshot, .pictureinpicture { display: none !important; }
+  .controls ha-icon { --mdc-icon-size: 20px; }
+  .stream { font-size: 18px !important; margin-left: 6px !important; }
+```
+
+- Thẻ **không có nút mic riêng**, nhưng mỗi mục trong `streams` có `media` riêng và
+  `ui: true` hiện tên mục ở góc dưới — **bấm vào tên là đổi mục**. Mở trang lên thẻ ở
+  🔇 (mic tắt); bấm 🔇 → 🎙️ mở mic để nói (hình khựng 1–2 giây vì thẻ nối lại); bấm
+  🎙️ → về 🔇. Mở lại trang luôn bắt đầu ở 🔇.
+- `style` ẩn nút lưu ảnh và cửa sổ nổi, thu nhỏ biểu tượng — chỉ còn phóng to/thu nhỏ,
+  nút đổi chế độ và nút loa. Ẩn cả nút loa thì thêm `, .volume` vào dòng đầu — nhưng
+  thẻ thường mở ở chế độ **tắt tiếng**, ẩn nút loa là **không nghe được** bên camera.
+- Dashboard nhiều camera: **chỉ thẻ của camera có dòng `exec` bộ đàm** mới cần mục 🎙️.
+  Thẻ nào có `microphone` là mic điện thoại mở ngay khi thẻ hiện — nhiều thẻ như vậy
+  trên một trang là mic mở suốt dù chỉ một camera phát được.
+
+Cách gọn nhất (mic mở suốt lúc thẻ hiện, không có nút):
+
 ```yaml
 type: custom:webrtc-camera
 url: cam_cua
 media: video,audio,microphone
 ```
 
-- Thẻ **không có nút mic**: có `microphone` thì thẻ xin quyền mic lúc mở và **để mic
-  mở suốt** lúc thẻ còn hiện. Nói là loa camera phát, im là loa đóng.
 - Trình duyệt / app HA Companion phải được **cho phép Micro** (Android: Cài đặt → Ứng
   dụng → Home Assistant → Quyền → Micro). Xin mic thất bại thì thẻ **im lặng bỏ qua**
   (chỉ ghi ở console) — không báo gì trên màn hình.
 - Mic chỉ chạy khi HA mở bằng **https**. `http://IP:8123` trong mạng nhà cũng bị
-  trình duyệt cấm mic.
+  trình duyệt cấm mic — console trình duyệt (F12) báo `TypeError: Cannot read
+  properties of undefined (reading 'getUserMedia')`, thẻ hỏng WebRTC rồi thử lại
+  liên tục. Trên máy tính trong nhà: mở HA bằng tên miền https, hoặc dùng mục 🔇.
 - Mở lại thẻ ngay khi phiên cũ chưa kịp đóng, go2rtc có thể báo `exec: Stdin already
   set` và lần đó không có mic — đóng thẻ ~10 giây rồi mở lại. Hai thẻ cùng mở mic
   vào **cùng một luồng** cũng gặp lỗi này.
@@ -321,11 +353,19 @@ ngoài (4G), WebRTC cần **một cổng vào nhà** và go2rtc phải **báo đ
 điện thoại.
 
 `candidates: - stun:8555` nghĩa là: go2rtc tự hỏi máy chủ STUN "IP ngoài của tôi là
-gì", rồi bảo điện thoại "gọi IP đó, cổng 8555". Chạy được khi **đủ ba điều**:
+gì", rồi bảo điện thoại "gọi IP đó, cổng 8555". Chạy được khi **đủ bốn điều**:
 
 1. Router có **IP công khai thật** (không phải CGNAT).
 2. Router **chuyển cổng 8555/TCP** về máy chạy go2rtc.
 3. Máy chạy go2rtc **ra internet bằng chính IP đó** (không bị router đẩy qua VPN).
+4. go2rtc **không bỏ qua IP LAN của chính nó** — xem
+   [go2rtc bỏ qua IP LAN của chính nó](#go2rtc-bỏ-qua-ip-lan-của-chính-nó) nếu mạng nhà
+   bạn là `172.16.x.x` … `172.31.x.x`.
+
+**Kiểm cổng từ ngoài** — đừng kiểm từ trong nhà (gói đi vòng qua chính router, hoặc
+qua VPN, cho kết quả sai): mở `https://check-host.net/check-tcp` bằng điện thoại hoặc
+máy bất kỳ, nhập `IP_WAN:8555`. Các nút ở nước ngoài báo thời gian (không báo lỗi) là
+cổng đã mở tới go2rtc.
 
 **Dấu hiệu chưa được:** mở thẻ bằng 4G có hình, có tiếng, **không có mic**. Thẻ chạy
 song song WebRTC và MSE; WebRTC không nối được thì sau **~30 giây** thẻ bỏ WebRTC,
@@ -478,6 +518,39 @@ dưới.
    ```
    (luật thứ hai đứng trước luật gắn nhãn VPN, để gói trả lời không bị gắn nhãn).
 
+### go2rtc bỏ qua IP LAN của chính nó
+
+go2rtc coi **cả dải `172.16.0.0/12`** (`172.16.x.x` … `172.31.x.x`) là mạng nội bộ
+của **Docker** và bỏ qua mọi địa chỉ trong dải đó — **nếu máy còn một địa chỉ nào khác**
+ngoài dải (card mạng Tailscale / ZeroTier / WireGuard `100.x.x.x`, IPv6…). Mạng nhà
+dùng `172.16.x.x` (hay gặp với MikroTik) thì go2rtc **bỏ qua chính IP LAN của nó**:
+
+- không báo IP LAN cho điện thoại, và
+- **không trả lời** kết nối WebRTC đi vào IP LAN — kể cả kết nối từ 4G đã được router
+  chuyển cổng về đúng máy (router đếm gói tăng, cổng mở từ ngoài, mà WebRTC vẫn không
+  nối: go2rtc nhận kết nối TCP rồi im, 0 byte trả lời).
+
+**Dấu hiệu:** chạy đoạn Python ở [mục trên](#router-đẩy-máy-ha-qua-vpn) nhưng in **mọi**
+dòng `a=candidate` (bỏ điều kiện `" 8555 "`): **không có dòng nào chứa IP LAN** của
+máy go2rtc, chỉ có IP ngoài và IP `100.x.x.x` / `fd7a:…` (Tailscale).
+
+**Sửa** — ghi rõ IP LAN trong `go2rtc.yaml` rồi khởi động lại go2rtc:
+
+```yaml
+webrtc:
+  listen: ":8555/tcp"
+  candidates:
+    - stun:8555
+  filters:
+    ips:
+      - 172.16.10.20        # IP LAN của máy chạy go2rtc
+      # - 100.101.102.103   # thêm IP Tailscale nếu vẫn muốn xem qua Tailscale
+```
+
+`ips` là danh sách IP go2rtc **được dùng** — ghi IP nào thì chỉ dùng IP đó. Có
+`udp_ports` thì để cùng mục `filters:`. Máy không có card mạng Tailscale/VPN nào thì
+go2rtc tự tắt bộ lọc này — không cần sửa.
+
 ### Không muốn mở cổng
 
 Dùng VPN **về nhà** (WireGuard trên router, add-on Tailscale…): bật VPN trên điện
@@ -556,10 +629,13 @@ xem go2rtc của HA. Không khai camera trong mục `go2rtc:` của Frigate nữ
 
 | Hiện tượng | Nguyên nhân | Cách xử lý |
 |---|---|---|
-| Thẻ không có nút mic | Thẻ WebRTC Camera không có nút mic — mic mở suốt khi có `microphone` | Bình thường. Nói là loa phát. |
+| Thẻ không có nút mic | Thẻ WebRTC Camera không có nút mic riêng — mic mở suốt khi có `microphone` | Dùng `ui: true` + hai mục `streams` 🔇/🎙️ — [Bước 3](#bước-3--thẻ-webrtc-camera). |
+| Console: `Cannot read properties of undefined (reading 'getUserMedia')` | HA mở bằng `http://` — trình duyệt cấm mic | Mở HA bằng https, hoặc để thẻ ở mục 🔇 (không xin mic). |
 | Có hình/tiếng, nói không ra loa (ở nhà) | Trình duyệt chưa cho mic, hoặc HA mở bằng `http` | Mở HA bằng https; cho phép Micro. |
 | Có hình/tiếng, nói không ra loa (4G) | WebRTC không nối được, thẻ tụt về MSE sau ~30 giây | Mở cổng 8555; kiểm CGNAT; kiểm máy go2rtc có đi VPN không. |
 | Đã mở cổng mà 4G vẫn không có mic | Máy go2rtc ra internet qua VPN → `stun:` báo IP của VPN | [Router đẩy máy HA qua VPN](#router-đẩy-máy-ha-qua-vpn). |
+| Cổng 8555 mở từ ngoài, router đếm gói tăng, 4G vẫn không nối | Mạng nhà `172.16–31.x.x` + máy có card Tailscale/VPN → go2rtc bỏ qua IP LAN | `webrtc: filters: ips: [IP_LAN]` — [xem](#go2rtc-bỏ-qua-ip-lan-của-chính-nó). |
+| Loa đọc câu vẫn sai dù đã cập nhật TTS | HA lưu đệm tiếng theo câu chữ + giọng, trả lại tệp cũ | Chạy `action: tts.clear_cache` rồi phát lại. |
 | go2rtc báo `exec: Stdin already set` | Mở lại thẻ khi phiên cũ chưa đóng, hoặc hai thẻ mở mic cùng một luồng | Đóng thẻ ~10 giây rồi mở lại; mỗi luồng chỉ một thẻ có mic. |
 | Thêm dòng `exec` qua giao diện go2rtc bị từ chối | go2rtc chặn nguồn `exec` qua API | Sửa thẳng `go2rtc.yaml`. |
 | Tiếng ra loa trễ cả câu | Dòng `exec` thiếu `-probesize 32 -analyzeduration 0 -fflags nobuffer` | Dùng đúng dòng dịch vụ trả về. |
