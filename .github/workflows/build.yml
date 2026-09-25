@@ -12,8 +12,13 @@ permissions:
 
 jobs:
   test:
-    name: Test on Home Assistant
+    name: Test on Home Assistant (Python ${{ matrix.python }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.13 → the last HA release for 3.13 (older installs); 3.14 → current HA.
+        python: ["3.13", "3.14"]
     steps:
       - name: Check out repository
         uses: actions/checkout@v7.0.1
@@ -21,7 +26,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.13"
+          python-version: ${{ matrix.python }}
 
       - name: Install Home Assistant test harness
         run: |
