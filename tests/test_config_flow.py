@@ -56,3 +56,74 @@ async def test_url_mic_sai_khong_dang_nhap_thu(hass):
         kq = await hass.config_entries.flow.async_configure(flow, {**NHAP, "mic_url": "ftp://x"})
     assert kq["errors"] == {"mic_url": "invalid_mic_url"}
     dn.assert_not_called()
+
+
+# ── Cấu hình lại: sửa IP / tài khoản / URL mic mà GIỮ khoá bộ đàm ──────────────────────
+
+from pytest_homeassistant_custom_component.common import MockConfigEntry  # noqa: E402
+
+KHOA = "khoa-bo-dam-cu"
+
+
+async def _mo_sua(hass, **them):
+    assert await async_setup_component(hass, "homeassistant", {})
+    entry = MockConfigEntry(domain=DOMAIN, title="Cam cửa", unique_id="192.168.1.64:37777",
+                            data={**NHAP, "intercom_key": KHOA, **them})
+    entry.add_to_hass(hass)
+    kq = await entry.start_reconfigure_flow(hass)
+    assert kq["type"] is FlowResultType.FORM and kq["step_id"] == "reconfigure"
+    # Mật khẩu cũ không được gửi ra form.
+    assert "mk" not in str(kq["data_schema"]({}))
+    return entry, kq["flow_id"]
+
+
+def _sua(**doi):
+    return {"host": NHAP["host"], "port": NHAP["port"], "username": NHAP["username"],
+            "password": "", "mic_url": NHAP["mic_url"], **doi}
+
+
+async def test_sua_url_mic_giu_khoa_khong_dang_nhap_lai(hass):
+    entry, flow = await _mo_sua(hass, mic_url="")
+    with mock.patch("custom_components.dahua_talk.config_flow.check_login") as dn, \
+            mock.patch("custom_components.dahua_talk.async_setup_entry", return_value=True):
+        kq = await hass.config_entries.flow.async_configure(flow, _sua())
+    assert kq["type"] is FlowResultType.ABORT and kq["reason"] == "reconfigure_successful"
+    dn.assert_not_called()
+    assert entry.data["mic_url"] == NHAP["mic_url"]
+    assert entry.data["intercom_key"] == KHOA and entry.data["password"] == "mk"
+
+
+async def test_doi_ip_mat_khau_trong_dung_mat_khau_cu(hass):
+    entry, flow = await _mo_sua(hass)
+    with mock.patch("custom_components.dahua_talk.config_flow.check_login") as dn, \
+            mock.patch("custom_components.dahua_talk.async_setup_entry", return_value=True):
+        kq = await hass.config_entries.flow.async_configure(flow, _sua(host="192.168.1.65"))
+    assert kq["reason"] == "reconfigure_successful"
+    dn.assert_called_once_with("192.168.1.65", "admin", "mk", 37777)
+    assert entry.unique_id == "192.168.1.65:37777" and entry.data["host"] == "192.168.1.65"
+    assert entry.data["intercom_key"] == KHOA
+
+
+async def test_sua_sai_mat_khau_khong_luu(hass):
+    entry, flow = await _mo_sua(hass)
+    with mock.patch("custom_components.dahua_talk.config_flow.check_login",
+                    side_effect=AuthError("wrong password")):
+        kq = await hass.config_entries.flow.async_configure(flow, _sua(password="sai"))
+    assert kq["type"] is FlowResultType.FORM and kq["errors"] == {"base": "invalid_auth"}
+    assert entry.data["password"] == "mk"
+
+
+async def test_sua_trung_camera_khac(hass):
+    MockConfigEntry(domain=DOMAIN, unique_id="192.168.1.70:37777", data={}).add_to_hass(hass)
+    entry, flow = await _mo_sua(hass)
+    with mock.patch("custom_components.dahua_talk.config_flow.check_login") as dn:
+        kq = await hass.config_entries.flow.async_configure(flow, _sua(host="192.168.1.70"))
+    assert kq["type"] is FlowResultType.ABORT and kq["reason"] == "already_configured"
+    dn.assert_not_called()
+    assert entry.data["host"] == "192.168.1.64"
+
+
+async def test_sua_url_mic_sai(hass):
+    entry, flow = await _mo_sua(hass)
+    kq = await hass.config_entries.flow.async_configure(flow, _sua(mic_url="ftp://x"))
+    assert kq["errors"] == {"mic_url": "invalid_mic_url"}

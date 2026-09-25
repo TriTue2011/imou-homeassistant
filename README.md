@@ -124,6 +124,11 @@ camera một lần:
 
 HA phải tới được camera ở cổng 37777 (cùng mạng LAN là đủ).
 
+**Sửa sau khi thêm** (từ 0.1.3): Thiết bị & dịch vụ → Dahua/Imou Talk → ⋮ cạnh camera →
+**Cấu hình lại** — đổi IP, tài khoản, mật khẩu (để trống = giữ cũ) hay *URL tiếng mic*.
+**Khoá bộ đàm giữ nguyên**, dòng go2rtc không phải chép lại. Đổi tên thì dùng **Đổi tên**
+trong cùng menu.
+
 > **Chỉ điền *URL tiếng mic* khi HA đã có pipeline Assist dùng được** — có engine
 > **từ gọi** (vd add-on openWakeWord), **STT** và **TTS**. Pipeline chỉ có tác tử hội
 > thoại (mặc định của một HA mới cài) thì vệ tinh không làm gì được: nó ghi cảnh báo
@@ -720,7 +725,7 @@ xem go2rtc của HA. Không khai camera trong mục `go2rtc:` của Frigate nữ
 | Thêm camera báo sai mật khẩu dù đúng | Camera đang khoá đăng nhập sau nhiều lần sai | Chờ vài phút (hoặc khởi động lại camera) rồi thử **một** lần. |
 | WebRTC không có hình | Luồng chính H.265 | Đổi luồng chính sang H.264 trong SmartPSS. |
 | Thêm camera thì hộp thoại quay mãi, HA treo (bản 0.1.0) | Có *URL tiếng mic* mà pipeline chưa có từ gọi/STT → vệ tinh mở lại pipeline hàng nghìn lần/giây | Cập nhật ≥ 0.1.1. Xem [ghi chú ở Cài đặt tích hợp](#cài-đặt-tích-hợp). |
-| Log: `Assist pipeline error (…) — retrying every N s` | Pipeline chọn cho camera thiếu từ gọi / STT / TTS | Cấu hình pipeline đủ ba khâu, hoặc bỏ *URL tiếng mic* (xoá camera, thêm lại để trống). |
+| Log: `Assist pipeline error (…) — retrying every N s` | Pipeline chọn cho camera thiếu từ gọi / STT / TTS | Cấu hình pipeline đủ ba khâu, hoặc xoá *URL tiếng mic* bằng **Cấu hình lại**. |
 
 ## Giới hạn
 

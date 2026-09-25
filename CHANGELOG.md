@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.3 - 2026-09-25
+
+### Cấu hình lại camera mà không phải xoá
+Menu ⋮ của camera (Thiết bị & dịch vụ → Dahua/Imou Talk) có thêm **Cấu hình lại**: sửa
+IP, cổng, tài khoản, mật khẩu, *URL tiếng mic*. **Khoá bộ đàm được giữ** — dòng `exec:`
+đã dán trong `go2rtc.yaml` vẫn đúng. Trước đây muốn thêm URL mic phải xoá camera rồi thêm
+lại, khoá đổi, phải chép lại dòng go2rtc.
+
+- Mật khẩu không điền sẵn (không gửi mật khẩu cũ ra trình duyệt); để trống là giữ cũ.
+- Chỉ đổi *URL tiếng mic* thì không đăng nhập lại camera; đổi IP/tài khoản/mật khẩu thì
+  đăng nhập thử **một** lần như lúc thêm.
+
 ## 0.1.2 - 2026-09-25
 
 ### Không kéo tiếng mic về khi pipeline đang lỗi

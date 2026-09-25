@@ -12,6 +12,17 @@
           "password": "Password",
           "mic_url": "Mic audio URL"
         }
+      },
+      "reconfigure": {
+        "title": "Reconfigure camera",
+        "description": "Change the camera address, account or mic URL. The intercom key is kept — the exec: line already in go2rtc.yaml keeps working. Leave the password empty to keep the current one.",
+        "data": {
+          "host": "Camera IP",
+          "port": "Talk port",
+          "username": "Username",
+          "password": "Password (empty = keep current)",
+          "mic_url": "Mic audio URL"
+        }
       }
     },
     "error": {
@@ -20,7 +31,8 @@
       "invalid_mic_url": "Mic URL must start with rtsp://, http:// or https://"
     },
     "abort": {
-      "already_configured": "This camera is already added."
+      "already_configured": "This camera is already added.",
+      "reconfigure_successful": "Camera updated."
     }
   },
   "entity": {

@@ -12,6 +12,17 @@
           "password": "Mật khẩu",
           "mic_url": "URL tiếng mic"
         }
+      },
+      "reconfigure": {
+        "title": "Cấu hình lại camera",
+        "description": "Sửa IP, tài khoản hoặc URL tiếng mic. Khoá bộ đàm được GIỮ — dòng exec: đã dán trong go2rtc.yaml vẫn dùng được. Để trống mật khẩu là giữ mật khẩu cũ.",
+        "data": {
+          "host": "IP camera",
+          "port": "Cổng nói",
+          "username": "Tài khoản",
+          "password": "Mật khẩu (trống = giữ cũ)",
+          "mic_url": "URL tiếng mic"
+        }
       }
     },
     "error": {
@@ -20,7 +31,8 @@
       "invalid_mic_url": "URL mic phải bắt đầu bằng rtsp://, http:// hoặc https://"
     },
     "abort": {
-      "already_configured": "Camera này đã được thêm."
+      "already_configured": "Camera này đã được thêm.",
+      "reconfigure_successful": "Đã cập nhật camera."
     }
   },
   "entity": {
