@@ -568,7 +568,9 @@ xem go2rtc của HA. Không khai camera trong mục `go2rtc:` của Frigate nữ
 ## Phát triển và test
 
 ```bash
-pip install pytest-homeassistant-custom-component ha-ffmpeg hassil home-assistant-intents mutagen pymicro-vad pyspeex-noise
+pip install pytest-homeassistant-custom-component
+# đúng phiên bản HA ghim cho các thành phần Assist/TTS/ffmpeg (bản mới nhất có thể lệch)
+pip install $(python -c 'import json,os,homeassistant as h; b=os.path.join(os.path.dirname(h.__file__),"components"); print(" ".join(sorted({r for c in ("assist_pipeline","conversation","ffmpeg","tts") for r in json.load(open(os.path.join(b,c,"manifest.json"))).get("requirements",[])})))')
 pytest
 ```
 

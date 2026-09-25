@@ -26,8 +26,18 @@ jobs:
       - name: Install Home Assistant test harness
         run: |
           python -m pip install pytest-homeassistant-custom-component
-          # Assist pipeline, TTS and ffmpeg components need these at import time.
-          python -m pip install ha-ffmpeg hassil home-assistant-intents mutagen pymicro-vad pyspeex-noise
+          # Assist pipeline, conversation, TTS and ffmpeg need these at import time.
+          # Install the EXACT versions this Home Assistant pins in each component's
+          # manifest — the latest releases can drift (a newer hassil broke imports).
+          python -m pip install $(python - <<'PY'
+          import json, os, homeassistant
+          base = os.path.join(os.path.dirname(homeassistant.__file__), "components")
+          reqs = []
+          for comp in ("assist_pipeline", "conversation", "ffmpeg", "tts"):
+              reqs += json.load(open(os.path.join(base, comp, "manifest.json"))).get("requirements", [])
+          print(" ".join(sorted(set(reqs))))
+          PY
+          )
 
       - name: Run tests
         run: python -m pytest -q
