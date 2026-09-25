@@ -188,3 +188,52 @@ async def test_pipeline_ket_thuc_ngay_khong_loi_van_cach_toi_thieu(hass):
         so_lan = len(lan)
         await hass.config_entries.async_unload(muc.entry_id)
     assert so_lan == 1
+
+
+async def test_pipeline_loi_thi_dung_doc_mic_trong_luc_nghi(hass):
+    """Đo trên máy ARM: pipeline lỗi mà ffmpeg vẫn kéo tiếng mic về liên tục (2,3% CPU
+    + băng thông) cho không ai dùng. Nghỉ vì lỗi thì tắt ffmpeg, hết nghỉ mới mở lại."""
+    muc = _muc(mic="http://mic")
+    tien_trinh = []
+
+    class ProcGia:
+        def __init__(self):
+            self.returncode = None
+            self._dung = asyncio.Event()
+            self.stdout = self
+
+        async def readexactly(self, n):
+            await self._dung.wait()
+            raise asyncio.IncompleteReadError(b"", n)
+
+        def kill(self):
+            self.returncode = -9
+            self._dung.set()
+
+        async def wait(self):
+            return self.returncode
+
+    that = asyncio.create_subprocess_exec
+
+    async def exec_gia(*lenh, **kw):
+        if "-af" not in lenh:
+            return await that(*lenh, **kw)
+        p = ProcGia()
+        tien_trinh.append(p)
+        return p
+
+    async def accept_loi(self, audio_stream, start_stage=PipelineStage.STT, **_kw):
+        await asyncio.sleep(0.05)          # để ffmpeg kịp mở như ngoài đời
+        self.on_pipeline_event(PipelineEvent(PipelineEventType.ERROR,
+                                             {"code": "x", "message": "no stt"}))
+
+    from custom_components.dahua_talk import assist_satellite as sat
+    with mock.patch.object(sat.asyncio, "create_subprocess_exec", exec_gia), \
+            mock.patch.object(sat.DahuaTalkSatellite, "async_accept_pipeline_from_satellite", accept_loi):
+        await _nap(hass, muc)
+        await asyncio.sleep(0.5)
+        con_chay = [p for p in tien_trinh if p.returncode is None]
+        so_mo = len(tien_trinh)
+        await hass.config_entries.async_unload(muc.entry_id)
+    assert so_mo == 1, f"mở ffmpeg {so_mo} lần trong lúc nghỉ"
+    assert con_chay == [], "đang nghỉ vì pipeline lỗi mà ffmpeg vẫn đọc mic"

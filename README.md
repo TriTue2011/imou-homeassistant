@@ -8,14 +8,18 @@ Mỗi camera thêm vào sinh ra:
 
 | Thực thể | Làm gì |
 |---|---|
-| `media_player.<camera>_loa` | `tts.speak`, `media_player.play_media` (tệp, URL, media source) ra loa camera. |
+| `media_player.<camera>_speaker` | `tts.speak`, `media_player.play_media` (tệp, URL, media source) ra loa camera. |
 | `assist_satellite.<camera>` | Nghe mic camera, chạy pipeline Assist (từ gọi → nhận giọng → hiểu lệnh → đọc trả lời), trả lời ra loa camera. Câu trả lời là câu hỏi lại thì nghe tiếp luôn, không cần gọi lại từ gọi. `assist_satellite.announce` / `start_conversation` phát ra loa. |
-| `number.<camera>_tang_mic` | Khuếch đại mic 0–30 dB trước khi đưa vào Assist (mic camera nhỏ). |
-| `switch.<camera>_tat_mic` | Tắt nghe (loa, thông báo, bộ đàm vẫn chạy). |
-| `select.<camera>_tro_ly` | Chọn pipeline Assist (từ gọi, STT, TTS, tác tử). |
-| `select.<camera>_phat_hien_noi_xong` | Độ nhạy nhận biết đã nói xong. |
+| `number.<camera>_microphone_gain` | Khuếch đại mic 0–30 dB trước khi đưa vào Assist (mic camera nhỏ). |
+| `switch.<camera>_mute_microphone` | Tắt nghe (loa, thông báo, bộ đàm vẫn chạy). |
+| `select.<camera>_assistant` | Chọn pipeline Assist (từ gọi, STT, TTS, tác tử). |
+| `select.<camera>_finished_speaking_detection` | Độ nhạy nhận biết đã nói xong. |
 
 Và dịch vụ `dahua_talk.get_intercom_source` — trả dòng cấu hình go2rtc cho **bộ đàm**.
+
+`entity_id` luôn sinh từ tên **tiếng Anh** (vd camera tên *Cam cửa* →
+`media_player.cam_cua_speaker`), kể cả khi HA để tiếng Việt; tên **hiển thị** trên
+giao diện thì theo ngôn ngữ của HA (*Loa*, *Tăng mic*, *Tắt mic*…).
 
 **Mục lục**
 
@@ -82,7 +86,7 @@ không đều được.
 > **35–94% thời gian** (mọi khoảng nó coi là "ồn" — kể cả câu nói ở xa). Từ gọi
 > (openWakeWord) không bao giờ nghe đủ cả cụm, nhận giọng (STT) mất chữ. Tắt lọc ồn
 > xong là hết cắt. Muốn giảm ồn thì để HA làm (Assist có lọc ồn riêng) và dùng
-> `number.<camera>_tang_mic` để bù độ nhỏ — đừng bật lọc của camera.
+> `number.<camera>_microphone_gain` để bù độ nhỏ — đừng bật lọc của camera.
 
 ### Mạng — Network
 
@@ -139,7 +143,7 @@ HA phải tới được camera ở cổng 37777 (cùng mạng LAN là đủ).
 action: tts.speak
 target: {entity_id: tts.piper}
 data:
-  media_player_entity_id: media_player.cam_cua_loa
+  media_player_entity_id: media_player.cam_cua_speaker
   message: "Có người ở cửa"
 
 # Thông báo (chờ phát xong mới chạy tiếp)
@@ -162,14 +166,14 @@ phát trước, cái sau chờ.
 
 **Từ gọi** do **pipeline** quyết: Cài đặt → Trợ lý giọng nói → chọn pipeline → mục
 *Từ gọi* chọn engine (vd openWakeWord) và từ (vd `okay_nabu`). Rồi chọn pipeline đó
-ở `select.<camera>_tro_ly`. Từ gọi riêng: thêm mô hình openWakeWord tuỳ chỉnh vào
+ở `select.<camera>_assistant`. Từ gọi riêng: thêm mô hình openWakeWord tuỳ chỉnh vào
 add-on openWakeWord (thư mục `share/openwakeword`) rồi chọn trong pipeline.
 
 Kinh nghiệm đo thật với camera trong nhà:
 
 - **Tắt Noise Filter trên camera** — [xem trên](#-lọc-ồn-làm-hỏng-từ-gọi-và-nhận-giọng).
 - **Tăng mic:** mic camera nhỏ (phòng yên chỉ -46…-51 dBFS). Ngồi cách 3 m phải nói to
-  mới bắt được từ gọi; `number.<camera>_tang_mic` **+12 đến +18 dB** là mức hợp lý.
+  mới bắt được từ gọi; `number.<camera>_microphone_gain` **+12 đến +18 dB** là mức hợp lý.
   Tích hợp luôn lọc bỏ độ lệch một chiều (DC) của mic camera **trước** khi tăng, và
   chặn đỉnh để nói gần không vỡ tiếng. Đổi mức là áp ngay.
 - **Từ gọi tiếng Anh với giọng Việt ở xa:** các mô hình có sẵn (`okay_nabu`,
@@ -181,7 +185,7 @@ Kinh nghiệm đo thật với camera trong nhà:
 > ⚠️ **Đừng cho nghe ở camera hướng ra ngoài** (cổng, cửa, ban công): ai đứng ngoài
 > nói từ gọi là ra lệnh được cho nhà bạn — kể cả mở khoá, tắt báo động nếu trợ lý
 > được phép. Camera ngoài chỉ nên dùng loa và bộ đàm (để trống *URL tiếng mic*, hoặc
-> bật `switch.<camera>_tat_mic`).
+> bật `switch.<camera>_mute_microphone`).
 
 ---
 
@@ -224,7 +228,7 @@ Công cụ nhà phát triển → **Hành động** → `dahua_talk.get_intercom
 ```yaml
 action: dahua_talk.get_intercom_source
 data:
-  entity_id: media_player.cam_cua_loa
+  entity_id: media_player.cam_cua_speaker
   # ha_url: http://192.168.1.10:8123   # xem bảng dưới — bỏ trống nếu go2rtc chung mạng với HA
 ```
 
@@ -564,7 +568,7 @@ xem go2rtc của HA. Không khai camera trong mục `go2rtc:` của Frigate nữ
 | Dòng `exec` gọi HA ra `401` | Sai khoá / camera đã xoá rồi thêm lại | Lấy lại dòng bằng `dahua_talk.get_intercom_source`. |
 | Dòng `exec` không kết nối được HA | Sai `ha_url` (thường: `127.0.0.1` trong khi go2rtc ở máy/container khác) | [Bảng chọn `ha_url`](#chọn-ha_url-theo-cách-bạn-cài). |
 | Từ gọi không bắt / STT mất chữ | Noise Filter của camera đang bật | Tắt Noise Filter trong SmartPSS. |
-| Phải nói rất to mới bắt từ gọi | Mic camera nhỏ | `number.<camera>_tang_mic` +12…+18 dB. |
+| Phải nói rất to mới bắt từ gọi | Mic camera nhỏ | `number.<camera>_microphone_gain` +12…+18 dB. |
 | `okay_nabu` / `hey_jarvis` không bắt khi ngồi xa | Mô hình giọng Anh, giọng Việt ở xa | Nói gần hơn, hoặc mô hình từ gọi tiếng Việt tự huấn luyện. |
 | Thêm camera báo sai mật khẩu dù đúng | Camera đang khoá đăng nhập sau nhiều lần sai | Chờ vài phút (hoặc khởi động lại camera) rồi thử **một** lần. |
 | WebRTC không có hình | Luồng chính H.265 | Đổi luồng chính sang H.264 trong SmartPSS. |

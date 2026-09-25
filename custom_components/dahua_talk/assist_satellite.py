@@ -83,6 +83,10 @@ class DahuaTalkSatellite(DahuaTalkEntity, AssistSatelliteEntity):
         self._mic_proc: asyncio.subprocess.Process | None = None
         self._mo_lai_mic = False         # tự tắt ffmpeg để đổi mức tăng mic
         self._loi_luot: str | None = None  # lỗi pipeline của lượt vừa chạy
+        # Được đọc mic. Hạ xuống khi vệ tinh nghỉ vì pipeline lỗi: không kéo tiếng
+        # về liên tục cho không ai dùng (đo trên máy ARM: ffmpeg 2,3% CPU + băng thông).
+        self._duoc_nghe = asyncio.Event()
+        self._duoc_nghe.set()
 
     # ── Cấu hình HA đòi ───────────────────────────────────────────────────────
 
@@ -141,6 +145,14 @@ class DahuaTalkSatellite(DahuaTalkEntity, AssistSatelliteEntity):
             self._mic_proc.kill()
 
     @callback
+    def _dung_doc_mic(self) -> None:
+        """Tạm dừng đọc mic (tắt ffmpeg) cho tới khi ``_duoc_nghe`` bật lại."""
+        self._duoc_nghe.clear()
+        if self._mic_proc is not None and self._mic_proc.returncode is None:
+            self._mo_lai_mic = True
+            self._mic_proc.kill()
+
+    @callback
     def _cat_luot(self) -> None:
         """Kết thúc luồng tiếng của lượt đang chạy để vòng nghe mở lượt mới."""
         while not self._hang.empty():
@@ -192,7 +204,11 @@ class DahuaTalkSatellite(DahuaTalkEntity, AssistSatelliteEntity):
                             "%s: Assist pipeline error (%s) — retrying every %.0f s. "
                             "Check the pipeline selected for this camera (wake word "
                             "engine, STT, TTS).", self.entity_id, self._loi_luot, nghi_loi)
-                    await asyncio.sleep(nghi_loi)
+                    self._dung_doc_mic()
+                    try:
+                        await asyncio.sleep(nghi_loi)
+                    finally:
+                        self._duoc_nghe.set()
                     continue
                 nghi_loi, loi_da_bao = 0.0, None
                 con = _LUOT_TOI_THIEU - (self.hass.loop.time() - t0)
@@ -212,6 +228,7 @@ class DahuaTalkSatellite(DahuaTalkEntity, AssistSatelliteEntity):
     async def _doc_mic(self) -> None:
         """ffmpeg đọc mic camera liên tục; đứt (camera rớt mạng…) thì mở lại."""
         while True:
+            await self._duoc_nghe.wait()
             lenh = [get_ffmpeg_manager(self.hass).binary, "-nostdin", "-hide_banner",
                     "-loglevel", "error"]
             if self._data.mic_url.lower().startswith("rtsp://"):

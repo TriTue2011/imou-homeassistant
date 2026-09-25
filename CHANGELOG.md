@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.2 - 2026-09-25
+
+### Không kéo tiếng mic về khi pipeline đang lỗi
+Pipeline Assist lỗi (chưa có từ gọi/STT…) thì vệ tinh nghỉ — nhưng ffmpeg vẫn đọc mic
+camera liên tục cho không ai dùng (đo trên máy ARM: ~2,3% CPU cộng băng thông). Nay
+trong lúc nghỉ, ffmpeg được tắt; hết nghỉ mới mở lại.
+
+### README
+Tên thực thể đúng như HA sinh ra (`entity_id` theo tên tiếng Anh, vd
+`media_player.<camera>_speaker`), kể cả khi HA để tiếng Việt.
+
 ## 0.1.1 - 2026-09-25
 
 ### Sửa: HA treo cứng khi pipeline Assist lỗi ngay từ đầu
