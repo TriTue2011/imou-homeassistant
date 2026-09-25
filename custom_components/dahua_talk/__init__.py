@@ -10,7 +10,8 @@ Mỗi camera là một mục cấu hình, sinh ra:
 * bộ đàm: mic điện thoại qua thẻ WebRTC Camera (go2rtc) → loa camera; dịch vụ
   ``dahua_talk.get_intercom_source`` trả dòng dán vào go2rtc.yaml.
 
-Loa đi qua cổng 37777 của camera (giao thức nói của Dahua). Mic đọc từ một URL
+Loa đi qua cổng 37777 của camera (giao thức nói của Dahua), hoặc qua kênh tiếng ngược
+RTSP/ONVIF với camera EZVIZ/Hikvision/ONVIF (``rtsp_talk``). Mic đọc từ một URL
 (luồng go2rtc hoặc RTSP) bằng ffmpeg của HA. Không cần dịch vụ nào ngoài HA.
 """
 
@@ -29,9 +30,12 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.typing import ConfigType
 
-from .const import CONF_MIC_URL, DEFAULT_PORT, DOMAIN
+from .const import (CONF_MIC_URL, CONF_RTSP_PATH, CONF_TALK, DEFAULT_PORT, DEFAULT_RTSP_PATH,
+                    DOMAIN, TALK_RTSP)
 from .intercom import CONF_INTERCOM_KEY, IntercomView, go2rtc_source
+from .rtsp_talk import RtspTalkSession
 from .speaker import Speaker
+from .talk import TalkSession
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
@@ -103,6 +107,16 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     return True
 
 
+def _mo_phien_noi(d) -> callable:
+    """Hàm mở một phiên nói theo cách camera hỗ trợ (mục cũ không có khoá này là Dahua)."""
+    host, user, pw = d[CONF_HOST], d[CONF_USERNAME], d[CONF_PASSWORD]
+    port = int(d.get(CONF_PORT, DEFAULT_PORT))
+    if d.get(CONF_TALK) == TALK_RTSP:
+        path = d.get(CONF_RTSP_PATH) or DEFAULT_RTSP_PATH
+        return lambda: RtspTalkSession(host, user, pw, port=port, path=path)
+    return lambda: TalkSession(host, user, pw, port=port)
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: DahuaTalkConfigEntry) -> bool:
     if not entry.data.get(CONF_INTERCOM_KEY):
         # Khoá bộ đàm riêng camera này, sinh một lần rồi giữ: dòng đã dán vào
@@ -111,8 +125,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: DahuaTalkConfigEntry) ->
             entry, data={**entry.data, CONF_INTERCOM_KEY: secrets.token_urlsafe(24)})
     d = entry.data
     entry.runtime_data = DahuaTalkData(
-        speaker=Speaker(hass, d[CONF_HOST], int(d.get(CONF_PORT, DEFAULT_PORT)),
-                        d[CONF_USERNAME], d[CONF_PASSWORD]),
+        speaker=Speaker(hass, _mo_phien_noi(d)),
         mic_url=str(d.get(CONF_MIC_URL) or ""),
     )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

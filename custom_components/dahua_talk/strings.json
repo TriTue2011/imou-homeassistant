@@ -3,14 +3,16 @@
     "step": {
       "user": {
         "title": "Add a Dahua/Imou camera",
-        "description": "Speaker uses the camera's talk protocol on TCP 37777. The mic URL is optional (go2rtc or RTSP), e.g. http://HOST:1984/api/stream.mp4?src=cam-sub&video=none&audio=all",
+        "description": "Imou/Dahua: talks over TCP 37777. EZVIZ/Hikvision/ONVIF: pick \"RTSP/ONVIF\", port 554 (37777 left as is means 554) and the main stream path. The mic URL is optional, e.g. http://HOST:1984/api/stream.mp4?src=cam-sub&video=none&audio=all",
         "data": {
           "name": "Name",
           "host": "Camera IP",
           "port": "Talk port",
           "username": "Username",
           "password": "Password",
-          "mic_url": "Mic audio URL"
+          "mic_url": "Mic audio URL",
+          "talk_protocol": "Talk protocol",
+          "rtsp_path": "RTSP path (RTSP talk only)"
         }
       },
       "reconfigure": {
@@ -21,14 +23,17 @@
           "port": "Talk port",
           "username": "Username",
           "password": "Password (empty = keep current)",
-          "mic_url": "Mic audio URL"
+          "mic_url": "Mic audio URL",
+          "talk_protocol": "Talk protocol",
+          "rtsp_path": "RTSP path (RTSP talk only)"
         }
       }
     },
     "error": {
       "invalid_auth": "The camera refused the login (it locks the session after a few wrong passwords — check before retrying).",
       "cannot_connect": "Cannot reach the camera's talk port.",
-      "invalid_mic_url": "Mic URL must start with rtsp://, http:// or https://"
+      "invalid_mic_url": "Mic URL must start with rtsp://, http:// or https://",
+      "no_backchannel": "The camera speaks RTSP but this stream has no audio backchannel (no speaker, or wrong RTSP path)."
     },
     "abort": {
       "already_configured": "This camera is already added.",
@@ -81,6 +86,14 @@
           "name": "HA address for go2rtc",
           "description": "Leave empty when go2rtc shares HA's network (go2rtc add-on). go2rtc on another machine/VM or inside Frigate: HA's LAN address, e.g. http://192.168.1.10:8123."
         }
+      }
+    }
+  },
+  "selector": {
+    "talk_protocol": {
+      "options": {
+        "dahua": "Dahua/Imou — port 37777",
+        "rtsp": "RTSP/ONVIF — EZVIZ, Hikvision, ONVIF cameras"
       }
     }
   }

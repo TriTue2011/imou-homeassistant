@@ -1,5 +1,7 @@
 """Loa của một camera, phía Home Assistant: nhận âm thanh (luồng PCM, WAV, URL) rồi phát.
 
+Cách nói với camera (Dahua 37777 hay kênh ngược RTSP) do ``mo_phien`` quyết.
+
 Mỗi camera một lúc chỉ một phiên nói (``asyncio.Lock``): thông báo và câu trả lời
 Assist cùng tới thì lần lượt. Phiên nói chạy trong luồng executor vì giao thức
 chặn (socket đồng bộ, phát đúng nhịp thời gian thực).
@@ -12,28 +14,30 @@ import io
 import logging
 import queue
 import wave
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 
 from homeassistant.components.ffmpeg import get_ffmpeg_manager
 from homeassistant.core import HomeAssistant
 
-from .talk import KHOI, TAN_SO, TalkSession
+from .talk import KHOI, TAN_SO
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class Speaker:
-    def __init__(self, hass: HomeAssistant, host: str, port: int, username: str,
-                 password: str) -> None:
+    """``mo_phien()`` trả một phiên nói (``talk.TalkSession`` cổng 37777 của Dahua, hay
+    ``rtsp_talk.RtspTalkSession`` kênh ngược RTSP/ONVIF): dùng với ``with``, có ``send_pcm``."""
+
+    def __init__(self, hass: HomeAssistant, mo_phien: Callable[[], object]) -> None:
         self.hass = hass
-        self._host, self._port, self._user, self._pw = host, port, username, password
+        self._mo_phien = mo_phien
         self._lock = asyncio.Lock()
         self.playing = False
 
     def _phien(self, hang: "queue.Queue[bytes | None]") -> float:
         """Luồng executor: mở kênh nói, rút PCM 8 kHz từ hàng đợi và phát. Trả số giây."""
         giay = 0.0
-        with TalkSession(self._host, self._user, self._pw, port=self._port) as s:
+        with self._mo_phien() as s:
             du = b""
             while (khuc := hang.get()) is not None:
                 du += khuc

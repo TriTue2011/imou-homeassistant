@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.2.0 - 2026-09-26
+
+### Camera EZVIZ / Hikvision / ONVIF: nói qua kênh tiếng ngược RTSP
+Ô mới **Cách nói ra loa** khi thêm (hoặc cấu hình lại) camera: *Dahua/Imou — cổng 37777*
+(như cũ, mặc định) hoặc *RTSP/ONVIF*. RTSP: hỏi luồng kèm `Require:
+www.onvif.org/ver20/backchannel`, mở đường tiếng `sendonly`, gửi RTP G.711 (PCMU, hoặc PCMA
+nếu camera chỉ có PCMA) đúng nhịp; xác thực Digest; giữ phiên bằng `GET_PARAMETER`. Loa,
+thông báo, vệ tinh Assist và bộ đàm dùng chung như camera Imou.
+
+- Đo trên camera EZVIZ thật: không có ISAPI (404) nhưng RTSP có kênh ngược PCMU 8 kHz.
+- Lúc thêm camera chỉ HỎI camera có kênh ngược (không phát tiếng); không có thì báo lỗi riêng.
+- Chọn RTSP mà để cổng 37777 mặc định thì tự hiểu là 554.
+- Mục cũ (không có ô cách nói) vẫn là Dahua — không phải cấu hình lại.
+- G.711 tự mã hoá (audioop bị bỏ khỏi Python 3.13), khớp audioop cả 65.536 giá trị.
+- Hướng dẫn riêng: `README_EZVIZ.md`.
+
 ## 0.1.3 - 2026-09-25
 
 ### Cấu hình lại camera mà không phải xoá

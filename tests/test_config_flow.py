@@ -127,3 +127,39 @@ async def test_sua_url_mic_sai(hass):
     entry, flow = await _mo_sua(hass)
     kq = await hass.config_entries.flow.async_configure(flow, _sua(mic_url="ftp://x"))
     assert kq["errors"] == {"mic_url": "invalid_mic_url"}
+
+
+# ── Camera EZVIZ / Hikvision / ONVIF: nói qua kênh tiếng ngược RTSP ─────────────────────
+
+async def test_them_camera_rtsp_cong_mac_dinh_thanh_554(hass):
+    flow = await _mo(hass)
+    with mock.patch("custom_components.dahua_talk.config_flow.check_rtsp_talk") as hoi, \
+            mock.patch("custom_components.dahua_talk.config_flow.check_login") as dn, \
+            mock.patch("custom_components.dahua_talk.async_setup_entry", return_value=True):
+        kq = await hass.config_entries.flow.async_configure(
+            flow, {**NHAP, "name": "Cam EZVIZ", "host": "192.168.1.203", "talk_protocol": "rtsp",
+                   "rtsp_path": "Streaming/Channels/101"})
+    assert kq["type"] is FlowResultType.CREATE_ENTRY
+    assert kq["data"]["port"] == 554 and kq["data"]["rtsp_path"] == "/Streaming/Channels/101"
+    hoi.assert_called_once_with("192.168.1.203", "admin", "mk", 554, "/Streaming/Channels/101")
+    dn.assert_not_called()
+
+
+async def test_rtsp_khong_co_kenh_nguoc_bao_rieng(hass):
+    from custom_components.dahua_talk.rtsp_talk import NoBackchannelError
+    flow = await _mo(hass)
+    with mock.patch("custom_components.dahua_talk.config_flow.check_rtsp_talk",
+                    side_effect=NoBackchannelError("x")):
+        kq = await hass.config_entries.flow.async_configure(flow, {**NHAP, "talk_protocol": "rtsp"})
+    assert kq["errors"] == {"base": "no_backchannel"}
+
+
+def test_chon_phien_noi_theo_cau_hinh():
+    from custom_components.dahua_talk import _mo_phien_noi
+    from custom_components.dahua_talk.rtsp_talk import RtspTalkSession
+    from custom_components.dahua_talk.talk import TalkSession
+    cu = _mo_phien_noi({"host": "h", "port": 37777, "username": "u", "password": "p"})()
+    assert isinstance(cu, TalkSession)                                  # mục cũ: Dahua
+    moi = _mo_phien_noi({"host": "h", "port": 554, "username": "u", "password": "p",
+                         "talk_protocol": "rtsp", "rtsp_path": "/Streaming/Channels/101"})()
+    assert isinstance(moi, RtspTalkSession) and moi.url == "rtsp://h:554/Streaming/Channels/101"

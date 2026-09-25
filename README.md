@@ -4,6 +4,9 @@ Biến mic và loa của camera **Imou / Dahua** thành **loa**, **bộ đàm** 
 bằng mic điện thoại, như app Imou) và **vệ tinh Assist** ngay trong Home Assistant —
 không cần dịch vụ nào bên ngoài HA.
 
+> **Camera EZVIZ, Hikvision, camera ONVIF có loa:** từ bản 0.2.0 dùng được qua **kênh
+> tiếng ngược RTSP/ONVIF** — xem **[README_EZVIZ.md](README_EZVIZ.md)**.
+
 Mỗi camera thêm vào sinh ra:
 
 | Thực thể | Làm gì |
@@ -118,7 +121,10 @@ camera một lần:
 | Ô | Điền |
 |---|---|
 | Tên | Tên camera (vd *Cam cửa*) |
-| IP camera, Cổng nói | IP camera trong mạng nhà, `37777` |
+| IP camera | IP camera trong mạng nhà |
+| Cách nói ra loa | **Dahua/Imou — cổng 37777** (camera Imou/Dahua). EZVIZ/Hikvision/ONVIF: chọn **RTSP/ONVIF** — [README_EZVIZ.md](README_EZVIZ.md) |
+| Cổng nói | `37777` (RTSP: `554`) |
+| Đường dẫn RTSP | Chỉ dùng khi nói qua RTSP, vd `/Streaming/Channels/101` |
 | Tài khoản, Mật khẩu | Tài khoản camera (thường `admin` + mật khẩu thiết bị / mã an toàn in trên tem) |
 | URL tiếng mic | **Không bắt buộc.** Có go2rtc: `http://IP_GO2RTC:1984/api/stream.mp4?src=TEN_LUONG_PHU&video=none&audio=all`. Hoặc URL RTSP luồng phụ của camera. **Bỏ trống thì chỉ dùng loa và bộ đàm** — vệ tinh Assist không nghe gì. |
 
