@@ -1,0 +1,75 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add a Dahua/Imou camera",
+        "description": "Speaker uses the camera's talk protocol on TCP 37777. The mic URL is optional (go2rtc or RTSP), e.g. http://HOST:1984/api/stream.mp4?src=cam-sub&video=none&audio=all",
+        "data": {
+          "name": "Name",
+          "host": "Camera IP",
+          "port": "Talk port",
+          "username": "Username",
+          "password": "Password",
+          "mic_url": "Mic audio URL"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "The camera refused the login (it locks the session after a few wrong passwords — check before retrying).",
+      "cannot_connect": "Cannot reach the camera's talk port.",
+      "invalid_mic_url": "Mic URL must start with rtsp://, http:// or https://"
+    },
+    "abort": {
+      "already_configured": "This camera is already added."
+    }
+  },
+  "entity": {
+    "select": {
+      "pipeline": {
+        "name": "Assistant",
+        "state": {
+          "preferred": "Preferred"
+        }
+      },
+      "vad_sensitivity": {
+        "name": "Finished speaking detection",
+        "state": {
+          "default": "Default",
+          "aggressive": "Aggressive",
+          "relaxed": "Relaxed"
+        }
+      }
+    },
+    "switch": {
+      "mute": {
+        "name": "Mute microphone"
+      }
+    },
+    "media_player": {
+      "speaker": {
+        "name": "Speaker"
+      }
+    },
+    "number": {
+      "mic_gain": {
+        "name": "Microphone gain"
+      }
+    }
+  },
+  "services": {
+    "get_intercom_source": {
+      "name": "go2rtc source for intercom",
+      "description": "Returns the exec: line to append to the camera stream in go2rtc.yaml so the WebRTC Camera card can talk through the camera speaker.",
+      "fields": {
+        "entity_id": {
+          "name": "Camera speaker",
+          "description": "The camera's media_player"
+        },
+        "ha_url": {
+          "name": "HA address for go2rtc",
+          "description": "Leave empty when go2rtc shares HA's network (go2rtc add-on). go2rtc on another machine/VM or inside Frigate: HA's LAN address, e.g. http://192.168.1.10:8123."
+        }
+      }
+    }
+  }
+}

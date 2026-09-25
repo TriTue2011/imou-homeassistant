@@ -1,0 +1,75 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Thêm camera Dahua/Imou",
+        "description": "Loa dùng giao thức nói của camera ở cổng TCP 37777. URL mic không bắt buộc (go2rtc hoặc RTSP), ví dụ http://MÁY:1984/api/stream.mp4?src=cam-sub&video=none&audio=all",
+        "data": {
+          "name": "Tên",
+          "host": "IP camera",
+          "port": "Cổng nói",
+          "username": "Tài khoản",
+          "password": "Mật khẩu",
+          "mic_url": "URL tiếng mic"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Camera từ chối đăng nhập (sai vài lần là camera khoá phiên — kiểm kỹ trước khi thử lại).",
+      "cannot_connect": "Không nối được cổng nói của camera.",
+      "invalid_mic_url": "URL mic phải bắt đầu bằng rtsp://, http:// hoặc https://"
+    },
+    "abort": {
+      "already_configured": "Camera này đã được thêm."
+    }
+  },
+  "entity": {
+    "select": {
+      "pipeline": {
+        "name": "Trợ lý",
+        "state": {
+          "preferred": "Ưu tiên"
+        }
+      },
+      "vad_sensitivity": {
+        "name": "Phát hiện nói xong",
+        "state": {
+          "default": "Mặc định",
+          "aggressive": "Nhanh",
+          "relaxed": "Thong thả"
+        }
+      }
+    },
+    "switch": {
+      "mute": {
+        "name": "Tắt mic"
+      }
+    },
+    "media_player": {
+      "speaker": {
+        "name": "Loa"
+      }
+    },
+    "number": {
+      "mic_gain": {
+        "name": "Tăng mic"
+      }
+    }
+  },
+  "services": {
+    "get_intercom_source": {
+      "name": "Dòng go2rtc cho bộ đàm",
+      "description": "Trả dòng exec: dán vào go2rtc.yaml (cuối danh sách nguồn của luồng camera) để thẻ WebRTC Camera nói ra loa camera.",
+      "fields": {
+        "entity_id": {
+          "name": "Loa camera",
+          "description": "media_player của camera"
+        },
+        "ha_url": {
+          "name": "Địa chỉ HA cho go2rtc",
+          "description": "Bỏ trống nếu go2rtc chạy chung mạng với HA (add-on go2rtc). go2rtc ở máy/VM khác hoặc trong Frigate: điền địa chỉ LAN của HA, vd http://192.168.1.10:8123."
+        }
+      }
+    }
+  }
+}
