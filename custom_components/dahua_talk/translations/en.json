@@ -24,12 +24,13 @@
       },
       "ezviz": {
         "title": "EZVIZ camera",
-        "description": "The speaker talks over the RTSP audio backchannel (port 554, user admin — filled in). The password is the VERIFICATION CODE: 6 capital letters on the label under the camera. Fill the mic URL only for the Assist satellite, e.g. http://HOST:1984/api/stream.mp4?src=cam-sub&video=none&audio=all",
+        "description": "The speaker talks over the RTSP audio backchannel (port 554, user admin — filled in). The password is the VERIFICATION CODE (6 capital letters on the label under the camera) or the password you changed it to. To use the camera as an Assist satellite / wake word, tick \"Listen to the camera mic\" — the mic URL is built for you. Only tick it once HA has a pipeline with wake word + STT + TTS.",
         "data": {
           "name": "Name",
           "host": "Camera IP",
-          "password": "Verification code (6 capital letters on the label)",
-          "mic_url": "Mic audio URL (optional)"
+          "password": "Password (6-capital-letter verification code on the label, or your changed password)",
+          "mic_url": "Other mic URL (empty = read the camera sub stream directly)",
+          "nghe_mic": "Listen to the camera mic (Assist satellite, wake word)"
         }
       },
       "onvif": {
@@ -54,7 +55,8 @@
           "rtsp_path": "RTSP stream path",
           "username": "Username",
           "mic_url": "Mic audio URL (optional)",
-          "password": "Password / verification code (empty = keep)"
+          "password": "Password / verification code (empty = keep)",
+          "nghe_mic": "Listen to the camera mic (Assist satellite, wake word)"
         }
       }
     },

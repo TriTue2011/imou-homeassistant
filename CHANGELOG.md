@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.2 - 2026-09-26
+
+### EZVIZ: tick "Nghe mic camera" thay vì gõ URL mic
+URL mic luồng phụ (`/Streaming/Channels/102`) tự dựng từ IP + mật khẩu, mã hoá sẵn ký tự đặc
+biệt (`@` → `%40` — lỗi hay gặp khi gõ tay), đổi mật khẩu thì URL đổi theo; form "Cấu hình
+lại" không hiện URL có mật khẩu. Ô "URL mic khác" để đọc qua nguồn khác (go2rtc) vẫn thắng.
+Nhãn mật khẩu EZVIZ ghi rõ "mã xác minh hoặc mật khẩu đã đổi".
+
+Đo: mic camera EZVIZ tắt về gần 0 đúng lúc loa phát (camera tự tắt mic khi nói, như Imou);
+phòng yên −70 dBFS → nên tăng mic +18 dB.
+
 ## 0.2.1 - 2026-09-26
 
 ### Thêm camera: chọn LOẠI camera trước

@@ -16,6 +16,8 @@ CONF_LOAI = "camera_type"
 LOAI_IMOU = "imou"
 LOAI_EZVIZ = "ezviz"
 LOAI_ONVIF = "onvif"
+#: EZVIZ: tick "nghe mic camera" — URL mic dựng từ IP + mật khẩu (luồng phụ 102).
+CONF_NGHE_MIC = "nghe_mic"
 DEFAULT_RTSP_PORT = 554
 DEFAULT_RTSP_PATH = "/Streaming/Channels/101"
 

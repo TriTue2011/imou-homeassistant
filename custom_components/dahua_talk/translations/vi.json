@@ -24,12 +24,13 @@
       },
       "ezviz": {
         "title": "Camera EZVIZ",
-        "description": "Loa nói qua kênh tiếng ngược RTSP (cổng 554, tài khoản admin — tự điền). Mật khẩu là MÃ XÁC MINH: 6 chữ IN HOA trên tem dưới đáy camera. URL mic chỉ điền khi dùng vệ tinh Assist, ví dụ http://MÁY:1984/api/stream.mp4?src=cam-sub&video=none&audio=all",
+        "description": "Loa nói qua kênh tiếng ngược RTSP (cổng 554, tài khoản admin — tự điền). Mật khẩu là MÃ XÁC MINH 6 chữ IN HOA trên tem dưới đáy camera (hoặc mật khẩu bạn đã đổi). Muốn camera làm vệ tinh Assist / nghe từ gọi thì tick \"Nghe mic camera\" — URL mic tự dựng, không phải gõ mật khẩu vào URL. Chỉ tick khi HA đã có pipeline đủ từ gọi + STT + TTS.",
         "data": {
           "name": "Tên",
           "host": "IP camera",
-          "password": "Mã xác minh (6 chữ IN HOA trên tem)",
-          "mic_url": "URL tiếng mic (không bắt buộc)"
+          "password": "Mật khẩu (mã xác minh 6 chữ IN HOA trên tem, hoặc mật khẩu đã đổi)",
+          "mic_url": "URL mic khác (để trống = đọc thẳng luồng phụ camera)",
+          "nghe_mic": "Nghe mic camera (vệ tinh Assist, từ gọi)"
         }
       },
       "onvif": {
@@ -54,7 +55,8 @@
           "rtsp_path": "Đường dẫn luồng RTSP",
           "username": "Tài khoản",
           "mic_url": "URL tiếng mic (không bắt buộc)",
-          "password": "Mật khẩu / mã xác minh (trống = giữ cũ)"
+          "password": "Mật khẩu / mã xác minh (trống = giữ cũ)",
+          "nghe_mic": "Nghe mic camera (vệ tinh Assist, từ gọi)"
         }
       }
     },

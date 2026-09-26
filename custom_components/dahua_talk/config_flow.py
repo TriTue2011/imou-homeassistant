@@ -13,13 +13,14 @@ from __future__ import annotations
 
 import logging
 from typing import Any
+from urllib.parse import quote
 
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PASSWORD, CONF_PORT, CONF_USERNAME
 
-from .const import (CONF_LOAI, CONF_MIC_URL, CONF_RTSP_PATH, CONF_TALK, DEFAULT_PORT,
+from .const import (CONF_LOAI, CONF_MIC_URL, CONF_NGHE_MIC, CONF_RTSP_PATH, CONF_TALK, DEFAULT_PORT,
                     DEFAULT_RTSP_PATH, DEFAULT_RTSP_PORT, DOMAIN, LOAI_EZVIZ, LOAI_IMOU,
                     LOAI_ONVIF, TALK_DAHUA, TALK_RTSP)
 from .rtsp_talk import NoBackchannelError, check_rtsp_talk
@@ -51,8 +52,24 @@ def _schema(loai: str, v: dict[str, Any], *, sua: bool = False) -> vol.Schema:
         s[vol.Optional(CONF_PASSWORD, default="")] = str
     else:
         s[vol.Required(CONF_PASSWORD, default=v.get(CONF_PASSWORD, ""))] = str
-    s[vol.Optional(CONF_MIC_URL, default=v.get(CONF_MIC_URL, ""))] = str
+    if loai == LOAI_EZVIZ:
+        # EZVIZ: tick là nghe mic — URL tự dựng từ IP + mật khẩu (khỏi gõ mật khẩu vào URL,
+        # khỏi quên đổi "@" thành "%40"). Ô URL chỉ để dùng nguồn khác (vd qua go2rtc).
+        s[vol.Optional(CONF_NGHE_MIC, default=bool(v.get(CONF_NGHE_MIC, False)))] = bool
+        s[vol.Optional(CONF_MIC_URL, default=v.get(_MIC_RIENG, ""))] = str
+    else:
+        s[vol.Optional(CONF_MIC_URL, default=v.get(CONF_MIC_URL, ""))] = str
     return vol.Schema(s)
+
+
+#: URL mic người dùng TỰ GÕ (EZVIZ) — giữ riêng để form "Cấu hình lại" không hiện URL tự
+#: dựng (có mật khẩu) ra ô nhập.
+_MIC_RIENG = "mic_url_rieng"
+
+
+def url_mic_ezviz(host: str, password: str) -> str:
+    """Luồng phụ EZVIZ (``/Streaming/Channels/102``, AAC 16 kHz) — đo thật 26/09/2026."""
+    return f"rtsp://admin:{quote(password, safe='')}@{host}:554/Streaming/Channels/102"
 
 
 def _day_du(loai: str, v: dict[str, Any]) -> dict[str, Any]:
@@ -66,9 +83,20 @@ def _day_du(loai: str, v: dict[str, Any]) -> dict[str, Any]:
     if loai == LOAI_EZVIZ:
         v.update({CONF_USERNAME: "admin", CONF_PORT: DEFAULT_RTSP_PORT,
                   CONF_RTSP_PATH: DEFAULT_RTSP_PATH})
+        # URL mic người dùng tự gõ (nguồn khác, vd qua go2rtc) thắng; không gõ mà có tick
+        # "nghe mic" thì dựng từ IP + mật khẩu hiện tại (đổi mật khẩu là URL đổi theo).
+        rieng = str(v.get(_MIC_RIENG) or "").strip()
+        v[_MIC_RIENG] = rieng
+        v[CONF_MIC_URL] = rieng or (url_mic_ezviz(v[CONF_HOST], v.get(CONF_PASSWORD, ""))
+                                    if v.get(CONF_NGHE_MIC) else "")
     duong = str(v.get(CONF_RTSP_PATH) or DEFAULT_RTSP_PATH).strip()
     v[CONF_RTSP_PATH] = duong if duong.startswith("/") else "/" + duong
     return v
+
+
+def _tu_form(loai: str, vao: dict[str, Any]) -> dict[str, Any]:
+    """Ô URL mic của form EZVIZ là URL TỰ GÕ (nguồn khác); URL dùng thật do ``_day_du`` dựng."""
+    return {**vao, _MIC_RIENG: vao.get(CONF_MIC_URL, "")} if loai == LOAI_EZVIZ else vao
 
 
 def _url_mic(v: dict[str, Any]) -> str | None:
@@ -124,7 +152,7 @@ class DahuaTalkConfigFlow(ConfigFlow, domain=DOMAIN):
     async def _them(self, loai: str, user_input: dict[str, Any] | None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
-            v = _day_du(loai, user_input)
+            v = _day_du(loai, _tu_form(loai, user_input))
             await self.async_set_unique_id(f"{v[CONF_HOST]}:{v[CONF_PORT]}")
             self._abort_if_unique_id_configured()
             if (mic := _url_mic(v)) is None:
@@ -141,7 +169,7 @@ class DahuaTalkConfigFlow(ConfigFlow, domain=DOMAIN):
         loai = loai_cua(entry.data)
         errors: dict[str, str] = {}
         if user_input is not None:
-            moi = _day_du(loai, {**entry.data, **user_input, CONF_PASSWORD:
+            moi = _day_du(loai, {**entry.data, **_tu_form(loai, user_input), CONF_PASSWORD:
                                  user_input.get(CONF_PASSWORD) or entry.data[CONF_PASSWORD]})
             uid = f"{moi[CONF_HOST]}:{moi[CONF_PORT]}"
             if uid != entry.unique_id:

@@ -57,8 +57,9 @@ Cài đặt → Thiết bị & dịch vụ → **Thêm tích hợp** → **Dahua
 |---|---|
 | Tên | vd `Cam EZVIZ` |
 | IP camera | IP trong mạng nhà |
-| Mã xác minh | 6 chữ IN HOA trên tem dưới đáy camera |
-| URL tiếng mic | để trống nếu chỉ cần loa + bộ đàm — xem [Vệ tinh Assist](#vệ-tinh-assist) |
+| Mật khẩu | **mã xác minh** 6 chữ IN HOA trên tem dưới đáy camera (hoặc mật khẩu bạn đã đổi) |
+| Nghe mic camera | tick nếu dùng camera làm vệ tinh Assist / từ gọi — URL mic **tự dựng**, không phải gõ mật khẩu vào URL |
+| URL mic khác | để trống; chỉ điền khi muốn đọc mic qua nguồn khác (vd qua go2rtc) |
 
 Tài khoản `admin`, cổng `554`, luồng `/Streaming/Channels/101` tích hợp tự điền. Camera
 Hikvision / ONVIF khác (đường dẫn luồng khác) thì chọn loại **Hikvision / camera ONVIF
@@ -140,11 +141,18 @@ Bấm 🔇 ↔ 🎙️ để tắt/mở mic. Mic chỉ chạy khi HA mở bằng
 
 ## Vệ tinh Assist
 
-Như camera Imou ([README chính → Vệ tinh Assist](README.md#vệ-tinh-assist-từ-gọi-tăng-mic)),
-chỉ khác URL tiếng mic — đọc luồng phụ:
+Như camera Imou ([README chính → Vệ tinh Assist](README.md#vệ-tinh-assist-từ-gọi-tăng-mic)).
+Chỉ cần **tick "Nghe mic camera"** (khi thêm, hoặc ⋮ → Cấu hình lại): tích hợp tự dựng URL
+luồng phụ `rtsp://admin:…@IP:554/Streaming/Channels/102` (AAC 16 kHz), mã hoá sẵn ký tự
+đặc biệt trong mật khẩu (`@` → `%40`), đổi mật khẩu thì URL đổi theo.
 
-- qua go2rtc: `http://IP_GO2RTC:1984/api/stream.mp4?src=cam_ezviz_sub&video=none&audio=all`
-- hoặc thẳng RTSP: `rtsp://admin:MA_XAC_MINH@IP_CAMERA:554/Streaming/Channels/102`
+Muốn đọc mic qua go2rtc (đỡ một kết nối tới camera) thì điền ô **URL mic khác**:
+`http://IP_GO2RTC:1984/api/stream.mp4?src=cam_ezviz_sub&video=none&audio=all` — ô này thắng
+URL tự dựng.
+
+Đo trên camera EZVIZ thật: phòng yên chỉ khoảng **−70 dBFS** — đặt
+`number.<camera>_microphone_gain` **+18 dB**. Camera **tự tắt mic lúc loa đang phát** (như
+Imou), nên vệ tinh không tự nghe lại câu trả lời của mình.
 
 Chỉ điền khi HA đã có pipeline đủ từ gọi + STT + TTS. Camera hướng ra ngoài: đừng cho nghe.
 
@@ -169,5 +177,8 @@ Trên một camera EZVIZ thật (26/09/2026), từ một máy trong cùng mạng
 - Mở kênh ngược, phát 0,8 giây tiếng bíp PCMU: DESCRIBE / SETUP / PLAY / TEARDOWN đều 200.
 - Hàm kiểm của tích hợp (`check_rtsp_talk`) nhận camera; sai mật khẩu báo đúng lỗi đăng nhập.
 
-**Chưa kiểm:** nghe tận tai tiếng phát ra loa qua tích hợp trên HA thật, và camera có tự
-tắt mic lúc loa phát không (camera Imou có). Có kết quả sẽ ghi thêm vào đây.
+- Phát câu TTS 5 giây bằng `RtspTalkSession` của tích hợp, cùng lúc ghi mic camera: mic
+  **tắt về gần 0 đúng khoảng 4,5–5 giây loa phát** (có tiếng bật/tắt loa hai đầu) — camera
+  tắt mic lúc nói, như Imou.
+
+**Chưa kiểm:** tai người nghe chất lượng tiếng ở loa.
