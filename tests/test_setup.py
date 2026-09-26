@@ -345,3 +345,32 @@ async def test_bat_duoc_tu_goi_thi_loa_keu_ting(hass):
             PipelineEventType.WAKE_WORD_END, {"wake_word_output": {"wake_word_id": "okay_nabu"}}))
         await hass.async_block_till_done()
         assert len(phat) == 1
+
+
+async def test_hong_sau_khi_da_nghe_thi_nghe_lai_ngay(hass):
+    """Gọi xong không nói gì → STT báo lỗi sau vài giây nghe: không được tắt mic nghỉ 5–60 s
+    (người dùng hay gọi lại liền). Chỉ lượt hỏng NGAY mới nghỉ."""
+    muc = _muc(mic="http://mic")
+    lan: list[float] = []
+
+    async def accept_hong_muon(self, audio_stream, start_stage=PipelineStage.STT, **_kw):
+        lan.append(self.hass.loop.time())
+        await asyncio.sleep(0.2)                       # "nghe" lâu hơn _LUOT_LOI_NHANH (đã rút)
+        self.on_pipeline_event(PipelineEvent(PipelineEventType.ERROR,
+                                             {"code": "stt-no-text-recognized", "message": "No text"}))
+
+    async def mic_gia(self):
+        await asyncio.Event().wait()
+
+    from custom_components.dahua_talk import assist_satellite as sat
+    with mock.patch.object(sat.DahuaTalkSatellite, "async_accept_pipeline_from_satellite", accept_hong_muon), \
+            mock.patch.object(sat.DahuaTalkSatellite, "_doc_mic", mic_gia), \
+            mock.patch.object(sat, "_LUOT_LOI_NHANH", 0.1), mock.patch.object(sat, "_LUOT_TOI_THIEU", 0.05):
+        await _nap(hass, muc)
+        for _ in range(300):
+            if len(lan) >= 3:
+                break
+            await asyncio.sleep(0.01)
+        await hass.config_entries.async_unload(muc.entry_id)
+    assert len(lan) >= 3, "phải nghe lại ngay, không nghỉ ≥ 5 s"
+    assert max(b - a for a, b in zip(lan, lan[1:])) < 1.0

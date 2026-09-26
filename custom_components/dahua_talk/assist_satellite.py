@@ -47,6 +47,9 @@ _TTS_THEM_GIAY = 5.0
 _LUOT_TOI_THIEU = 1.0
 #: Pipeline lỗi (chưa có từ gọi, STT/TTS hỏng…) thì nghỉ, tăng dần tới mức này.
 _NGHI_LOI_TOI_DA = 60.0
+#: Chỉ lượt hỏng NGAY (dưới ngần này giây) mới nghỉ — đó là pipeline cấu hình hỏng, mở lại
+#: tức thì là quay vòng. Lượt đã nghe lâu hơn mà hỏng (STT không ra chữ…) thì nghe lại ngay.
+_LUOT_LOI_NHANH = 3.0
 #: Chờ ô chọn pipeline / độ nhạy sẵn sàng tối đa ngần này giây trước lượt nghe đầu.
 #: Vệ tinh nạp NHANH hơn hai ô chọn của chính nó: lượt đầu đọc ô chọn còn "unavailable"
 #: thì HA ném lỗi ('unavailable' is not a valid VadSensitivity) — đo thật 26/09/2026 mỗi
@@ -238,6 +241,13 @@ class DahuaTalkSatellite(DahuaTalkEntity, AssistSatelliteEntity):
                     # lượt sau phải nghe ngay, không nghỉ.
                     nghi_loi = 0.0
                     continue
+                if self._loi_luot is not None and self.hass.loop.time() - t0 >= _LUOT_LOI_NHANH:
+                    # Hỏng SAU khi đã nghe một lúc (gọi xong không nói gì → STT không ra chữ,
+                    # tác tử hội thoại lỗi…): đó là chuyện của lượt ấy, không phải pipeline hỏng
+                    # — nghe lại ngay, không tắt mic nghỉ (người dùng hay gọi lại liền).
+                    _LOGGER.debug("%s: pipeline run failed after listening (%s) — listening again",
+                                  self.entity_id, self._loi_luot)
+                    self._loi_luot = None
                 if self._loi_luot is not None:
                     nghi_loi = min(_NGHI_LOI_TOI_DA, max(5.0, nghi_loi * 2))
                     if self._loi_luot != loi_da_bao:

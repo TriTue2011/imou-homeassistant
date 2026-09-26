@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.6 - 2026-09-26
+
+### Lượt hỏng sau khi đã nghe không làm vệ tinh điếc
+Gọi xong không nói gì (STT báo không ra chữ), tác tử hội thoại lỗi… trước đây vệ tinh coi là
+pipeline hỏng: tắt mic, nghỉ 5 → 60 giây — gọi lại liền là trượt. Nay chỉ lượt hỏng NGAY
+(dưới 3 giây, pipeline cấu hình sai) mới nghỉ; lượt đã nghe lâu hơn mà hỏng thì nghe lại ngay.
+
 ## 0.2.5 - 2026-09-26
 
 ### Tiếng "ting" khi bắt được từ gọi
