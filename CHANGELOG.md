@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.7 - 2026-09-26
+
+### Không còn kẹt "Đang phản hồi"; ting xong là nói được ngay
+- Gom tiếng TTS / thông báo có hạn (30 s): dịch vụ TTS trả luồng mà không đóng thì trước đây
+  vệ tinh kẹt ở "Đang phản hồi" mãi, không về nghe (sự cố thật: 13 phút tới khi nạp lại).
+- Tiếng ting KHÔNG còn chặn mic: trước đây bỏ tiếng mic tới lúc đóng xong phiên loa, nuốt mất
+  đầu câu của người nói ngay sau tiếng ting. Camera vốn tự tắt mic khi loa phát. Ting có hạn 5 s.
+
+### Ghi chú đo: gọi xa không phải vì tiếng nhỏ
+Giảm giọng thật 12 / 18 / 24 dB (giả người đứng xa), `okay_nabu` vẫn bắt 4/4 với điểm như cũ —
+openWakeWord tự chuẩn hoá độ to. Gọi xa hỏng vì vang phòng / tiếng nền, tăng mic không giúp mà
+còn làm vỡ tiếng người nói gần. Giữ tăng mic 0 dB.
+
 ## 0.2.6 - 2026-09-26
 
 ### Lượt hỏng sau khi đã nghe không làm vệ tinh điếc

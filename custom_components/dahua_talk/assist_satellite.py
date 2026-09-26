@@ -43,6 +43,9 @@ _LOGGER = logging.getLogger(__name__)
 
 #: Chờ tối đa ngần này giây sau phần tiếng TTS rồi coi như đã phát xong.
 _TTS_THEM_GIAY = 5.0
+#: Gom tiếng TTS / tiếng ting tối đa ngần này giây — quá thì bỏ, vệ tinh về nghe tiếp.
+_TTS_GOM_TOI_DA = 30.0
+_TING_TOI_DA = 5.0
 #: Hai lượt pipeline cách nhau ít nhất ngần này giây, dù lượt trước kết thúc thế nào.
 _LUOT_TOI_THIEU = 1.0
 #: Pipeline lỗi (chưa có từ gọi, STT/TTS hỏng…) thì nghỉ, tăng dần tới mức này.
@@ -356,24 +359,27 @@ class DahuaTalkSatellite(DahuaTalkEntity, AssistSatelliteEntity):
             self._tts_xong.set()
 
     async def _phat_ting(self) -> None:
-        """Tiếng báo đã bắt được từ gọi. Trong lúc kêu thì bỏ tiếng mic (như lúc trả lời) —
-        tiếng ting không được lọt vào câu lệnh."""
-        self._dang_noi = True
+        """Tiếng báo đã bắt được từ gọi. KHÔNG bỏ tiếng mic lúc kêu: camera tự tắt mic khi loa
+        phát, còn bỏ tiếng tới lúc đóng xong phiên loa thì nuốt mất đầu câu người nói ngay sau
+        tiếng ting (chủ máy 26/09/2026: "người dùng nghe thấy ting là nói luôn rồi"). Có hạn:
+        phiên loa treo thì tiếng báo bỏ, vệ tinh không được treo theo."""
         try:
             pcm = tieng_ting()
 
             async def _mot():
                 yield pcm
-            await self._data.speaker.async_play_pcm(_mot())
-        except (TalkError, OSError) as exc:
+            async with asyncio.timeout(_TING_TOI_DA):
+                await self._data.speaker.async_play_pcm(_mot())
+        except (TalkError, OSError, TimeoutError) as exc:
             _LOGGER.debug("%s: cannot play wake sound: %s", self.entity_id, exc)
-        finally:
-            self._dang_noi = False
 
     async def _phat_tts(self, luong: tts.ResultStream) -> None:
         self._dang_noi = True
         try:
-            wav = b"".join([k async for k in luong.async_stream_result()])
+            # Gom tiếng TTS CÓ HẠN: dịch vụ TTS trả luồng mà không đóng thì vệ tinh kẹt ở
+            # "Đang phản hồi" mãi, không về nghe (đo thật 26/09/2026: kẹt 13 phút tới khi nạp lại).
+            async with asyncio.timeout(_TTS_GOM_TOI_DA):
+                wav = b"".join([k async for k in luong.async_stream_result()])
             async with asyncio.timeout(len(wav) / 16000 + _TTS_THEM_GIAY + 10):
                 await self._data.speaker.async_play_wav(wav)
         except (TalkError, OSError, TimeoutError) as exc:
@@ -388,11 +394,13 @@ class DahuaTalkSatellite(DahuaTalkEntity, AssistSatelliteEntity):
         try:
             if announcement.tts_token and (
                     luong := tts.async_get_stream(self.hass, announcement.tts_token)):
-                wav = b"".join([k async for k in luong.async_stream_result()])
-                await self._data.speaker.async_play_wav(wav)
+                async with asyncio.timeout(_TTS_GOM_TOI_DA):
+                    wav = b"".join([k async for k in luong.async_stream_result()])
+                async with asyncio.timeout(len(wav) / 16000 + _TTS_THEM_GIAY + 10):
+                    await self._data.speaker.async_play_wav(wav)
             else:
                 await self._data.speaker.async_play_url(announcement.media_id)
-        except (TalkError, OSError) as exc:
+        except (TalkError, OSError, TimeoutError) as exc:
             _LOGGER.warning("%s: cannot play announcement: %s", self.entity_id, exc)
         finally:
             self._dang_noi = False

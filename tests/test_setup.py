@@ -329,7 +329,7 @@ async def test_bat_duoc_tu_goi_thi_loa_keu_ting(hass):
 
     async def play_gia(chunks):
         phat.append(b"".join([c async for c in chunks]))
-        assert ve_tinh._dang_noi, "trong lúc kêu phải bỏ tiếng mic"
+        assert not ve_tinh._dang_noi, "ting không chặn mic — người nghe ting là nói luôn"
         return 0.3
 
     with mock.patch.object(muc.runtime_data.speaker, "async_play_pcm", play_gia):
@@ -374,3 +374,26 @@ async def test_hong_sau_khi_da_nghe_thi_nghe_lai_ngay(hass):
         await hass.config_entries.async_unload(muc.entry_id)
     assert len(lan) >= 3, "phải nghe lại ngay, không nghỉ ≥ 5 s"
     assert max(b - a for a, b in zip(lan, lan[1:])) < 1.0
+
+
+
+async def test_tts_treo_khong_lam_ve_tinh_ket(hass):
+    """Sự cố thật 26/09/2026: kẹt "Đang phản hồi" 13 phút — luồng TTS không bao giờ đóng."""
+    from custom_components.dahua_talk import assist_satellite as sat
+
+    muc = _muc()
+    await _nap(hass, muc)
+    ma = next(e.entity_id for e in er.async_entries_for_config_entry(er.async_get(hass), muc.entry_id)
+              if e.domain == "assist_satellite")
+    ve_tinh = hass.data["entity_components"]["assist_satellite"].get_entity(ma)
+
+    class LuongTreo:
+        async def async_stream_result(self):
+            yield b"RIFF"
+            await asyncio.Event().wait()
+
+    xong: list[int] = []
+    with mock.patch.object(sat, "_TTS_GOM_TOI_DA", 0.05), \
+            mock.patch.object(ve_tinh, "tts_response_finished", lambda: xong.append(1)):
+        await ve_tinh._phat_tts(LuongTreo())
+    assert xong == [1] and not ve_tinh._dang_noi and ve_tinh._tts_xong.is_set()
