@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.8 - 2026-09-26
+
+### Tiếng ting không còn bị nghe thành câu lệnh
+- Mic bỏ tiếng từ lúc bắt được từ gọi tới khi tiếng ting DỨT (gói cuối gửi đi + 0,4 s), không
+  tới lúc đóng phiên loa. Đo thật: bản 0.2.7 để mic mở lúc kêu ting — 0,3 s sau từ gọi bộ dò
+  tiếng đã thấy "tiếng" (ting lọt mic, đuôi từ gọi), 1,5 s sau coi là nói xong; nhận giọng
+  bịa ra "Không", "Chị" khi người dùng chưa nói gì, câu lệnh thật sau đó bị bỏ, và tác tử
+  hiểu "Không" là người dùng bác câu trả lời trước. Giả định "camera tự tắt mic khi loa phát"
+  của 0.2.7 sai với ít nhất một camera.
+- Từ gọi tiếng Việt «Trợ lý» cho openWakeWord: [wakeword/](wakeword/).
+
 ## 0.2.7 - 2026-09-26
 
 ### Không còn kẹt "Đang phản hồi"; ting xong là nói được ngay

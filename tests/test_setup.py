@@ -311,7 +311,10 @@ def _ngu_nhanh(ngu_that):
 
 async def test_bat_duoc_tu_goi_thi_loa_keu_ting(hass):
     """Chủ máy 26/09/2026: "khi nó wake up thì có tiếng ting để người dùng còn biết để giao
-    tiếp". Tắt công tắc thì im; lượt kết thúc mà KHÔNG bắt được thì im."""
+    tiếp". Tắt công tắc thì im; lượt kết thúc mà KHÔNG bắt được thì im. Mic bỏ tiếng từ lúc
+    bắt được tới khi tiếng ting DỨT (không tới lúc đóng phiên loa): đo 22:53–22:55 không chặn
+    thì nhận giọng bịa "Không" từ tiếng ting khi chủ máy chưa nói gì."""
+    import time
     from custom_components.dahua_talk import assist_satellite as sat
 
     pcm = sat.tieng_ting()
@@ -327,9 +330,14 @@ async def test_bat_duoc_tu_goi_thi_loa_keu_ting(hass):
     ve_tinh = hass.data["entity_components"]["assist_satellite"].get_entity(ma)
     phat: list[bytes] = []
 
+    loa = muc.runtime_data.speaker
+    dong_phien = asyncio.Event()
+
     async def play_gia(chunks):
         phat.append(b"".join([c async for c in chunks]))
-        assert not ve_tinh._dang_noi, "ting không chặn mic — người nghe ting là nói luôn"
+        assert ve_tinh._chan_ting, "đang kêu ting thì bỏ tiếng mic"
+        loa.het_tieng = time.monotonic()            # gói tiếng cuối vừa gửi
+        await dong_phien.wait()                     # đóng phiên loa còn lâu
         return 0.3
 
     with mock.patch.object(muc.runtime_data.speaker, "async_play_pcm", play_gia):
@@ -338,8 +346,12 @@ async def test_bat_duoc_tu_goi_thi_loa_keu_ting(hass):
         assert phat == [], "không bắt được thì không kêu"
         ve_tinh.on_pipeline_event(PipelineEvent(
             PipelineEventType.WAKE_WORD_END, {"wake_word_output": {"wake_word_id": "okay_nabu"}}))
+        assert ve_tinh._chan_ting, "chặn ngay lúc bắt được — phủ cả đuôi từ gọi"
+        await asyncio.sleep(sat._TING_DEM + 0.2)
+        assert phat == [pcm] and not ve_tinh._chan_ting, "ting dứt thì mở mic, KHÔNG chờ đóng phiên"
+        dong_phien.set()
         await hass.async_block_till_done()
-        assert phat == [pcm] and not ve_tinh._dang_noi
+        assert not ve_tinh._dang_noi
         await hass.services.async_call("switch", "turn_off", {"entity_id": ting}, blocking=True)
         ve_tinh.on_pipeline_event(PipelineEvent(
             PipelineEventType.WAKE_WORD_END, {"wake_word_output": {"wake_word_id": "okay_nabu"}}))

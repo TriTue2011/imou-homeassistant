@@ -13,6 +13,7 @@ import asyncio
 import io
 import logging
 import queue
+import time
 import wave
 from collections.abc import AsyncIterator, Callable
 
@@ -33,6 +34,9 @@ class Speaker:
         self._mo_phien = mo_phien
         self._lock = asyncio.Lock()
         self.playing = False
+        #: ``time.monotonic()`` lúc gói tiếng CUỐI vừa gửi sang camera (``send_pcm`` gửi đúng
+        #: nhịp thời gian thực nên đây là lúc tiếng dứt phía gửi) — chưa tính đóng phiên.
+        self.het_tieng = 0.0
 
     def _phien(self, hang: "queue.Queue[bytes | None]") -> float:
         """Luồng executor: mở kênh nói, rút PCM 8 kHz từ hàng đợi và phát. Trả số giây."""
@@ -44,10 +48,12 @@ class Speaker:
                 n = len(du) // KHOI * KHOI
                 if n:
                     s.send_pcm(du[:n])
+                    self.het_tieng = time.monotonic()
                     giay += n / (2 * TAN_SO)
                     du = du[n:]
             if du:
                 s.send_pcm(du)
+                self.het_tieng = time.monotonic()
                 giay += len(du) / (2 * TAN_SO)
         return giay
 

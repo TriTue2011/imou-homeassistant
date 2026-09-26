@@ -18,6 +18,7 @@ import contextlib
 import logging
 import math
 import struct
+import time
 from typing import Any
 
 from homeassistant.components import tts
@@ -46,6 +47,11 @@ _TTS_THEM_GIAY = 5.0
 #: Gom tiếng TTS / tiếng ting tối đa ngần này giây — quá thì bỏ, vệ tinh về nghe tiếp.
 _TTS_GOM_TOI_DA = 30.0
 _TING_TOI_DA = 5.0
+#: Sau gói tiếng ting cuối, mic còn chặn ngần này giây: camera phát trễ sau lúc nhận + vang
+#: phòng. Đo thật 26/09/2026 22:53–22:55: KHÔNG chặn thì 0,3 s sau từ gọi bộ dò tiếng đã
+#: thấy "tiếng" (ting lọt mic / đuôi từ gọi), 1,5 s sau coi là nói xong — nhận giọng bịa
+#: ra "Không", "Chị" khi chủ máy chưa nói gì, còn câu thật sau đó bị bỏ.
+_TING_DEM = 0.4
 #: Hai lượt pipeline cách nhau ít nhất ngần này giây, dù lượt trước kết thúc thế nào.
 _LUOT_TOI_THIEU = 1.0
 #: Pipeline lỗi (chưa có từ gọi, STT/TTS hỏng…) thì nghỉ, tăng dần tới mức này.
@@ -109,6 +115,7 @@ class DahuaTalkSatellite(DahuaTalkEntity, AssistSatelliteEntity):
         self._data = entry.runtime_data
         self._hang: asyncio.Queue[bytes | None] = asyncio.Queue(maxsize=64)
         self._dang_noi = False           # đang phát ra loa: bỏ tiếng mic (khỏi tự nghe mình)
+        self._chan_ting = False          # từ gọi → tiếng ting dứt: bỏ tiếng mic
         self._tts_xong = asyncio.Event()
         self._co_tts = False
         self._tiep = False               # lượt sau nghe thẳng, không cần từ gọi
@@ -312,7 +319,7 @@ class DahuaTalkSatellite(DahuaTalkEntity, AssistSatelliteEntity):
                     _LOGGER.warning("%s: no audio from mic for %.0f s, reopening",
                                     self.entity_id, _MIC_IM_GIAY)
                     break
-                if self._dang_noi or self._data.mic_muted:
+                if self._dang_noi or self._chan_ting or self._data.mic_muted:
                     continue
                 if self._hang.full():
                     self._hang.get_nowait()      # tụt hậu thì bỏ khúc cũ nhất
@@ -336,6 +343,7 @@ class DahuaTalkSatellite(DahuaTalkEntity, AssistSatelliteEntity):
         if event.type is PipelineEventType.WAKE_WORD_END:
             # Bắt được từ gọi (output rỗng là luồng tiếng kết thúc mà không bắt được).
             if (event.data or {}).get("wake_word_output") and self._data.ting:
+                self._chan_ting = True           # ngay lúc bắt được — phủ cả đuôi từ gọi
                 self._entry.async_create_background_task(
                     self.hass, self._phat_ting(), f"{self.entity_id} ting")
         elif event.type is PipelineEventType.INTENT_END:
@@ -359,19 +367,33 @@ class DahuaTalkSatellite(DahuaTalkEntity, AssistSatelliteEntity):
             self._tts_xong.set()
 
     async def _phat_ting(self) -> None:
-        """Tiếng báo đã bắt được từ gọi. KHÔNG bỏ tiếng mic lúc kêu: camera tự tắt mic khi loa
-        phát, còn bỏ tiếng tới lúc đóng xong phiên loa thì nuốt mất đầu câu người nói ngay sau
-        tiếng ting (chủ máy 26/09/2026: "người dùng nghe thấy ting là nói luôn rồi"). Có hạn:
-        phiên loa treo thì tiếng báo bỏ, vệ tinh không được treo theo."""
+        """Tiếng báo đã bắt được từ gọi. Mic bị bỏ từ lúc bắt được tới khi tiếng ting DỨT
+        (gói cuối gửi đi + ``_TING_DEM``) — KHÔNG tới lúc đóng xong phiên loa: chờ đóng phiên là
+        nuốt mất đầu câu người nói ngay sau tiếng ting (chủ máy 26/09/2026: "người dùng nghe
+        thấy ting là nói luôn rồi"). Có hạn: phiên loa treo thì tiếng báo bỏ, mic mở lại."""
+        loa = self._data.speaker
+        phat: asyncio.Task | None = None
         try:
             pcm = tieng_ting()
 
             async def _mot():
                 yield pcm
             async with asyncio.timeout(_TING_TOI_DA):
-                await self._data.speaker.async_play_pcm(_mot())
+                truoc = loa.het_tieng           # đọc TRƯỚC: HA chạy task ngay tới lần chờ đầu
+                phat = self.hass.async_create_task(loa.async_play_pcm(_mot()))
+                while not phat.done() and loa.het_tieng == truoc:
+                    await asyncio.sleep(0.02)
+                con = loa.het_tieng + _TING_DEM - time.monotonic()
+                if loa.het_tieng != truoc and con > 0:
+                    await asyncio.sleep(con)
+                self._chan_ting = False
+                await phat
         except (TalkError, OSError, TimeoutError) as exc:
             _LOGGER.debug("%s: cannot play wake sound: %s", self.entity_id, exc)
+        finally:
+            self._chan_ting = False
+            if phat is not None and not phat.done():
+                phat.cancel()
 
     async def _phat_tts(self, luong: tts.ResultStream) -> None:
         self._dang_noi = True
