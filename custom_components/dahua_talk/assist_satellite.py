@@ -27,6 +27,7 @@ from homeassistant.components.assist_satellite import (
     AssistSatelliteEntityFeature,
 )
 from homeassistant.components.ffmpeg import get_ffmpeg_manager
+from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
@@ -44,6 +45,15 @@ _TTS_THEM_GIAY = 5.0
 _LUOT_TOI_THIEU = 1.0
 #: Pipeline lỗi (chưa có từ gọi, STT/TTS hỏng…) thì nghỉ, tăng dần tới mức này.
 _NGHI_LOI_TOI_DA = 60.0
+#: Chờ ô chọn pipeline / độ nhạy sẵn sàng tối đa ngần này giây trước lượt nghe đầu.
+#: Vệ tinh nạp NHANH hơn hai ô chọn của chính nó: lượt đầu đọc ô chọn còn "unavailable"
+#: thì HA ném lỗi ('unavailable' is not a valid VadSensitivity) — đo thật 26/09/2026 mỗi
+#: lần nạp lại tích hợp; vệ tinh coi là pipeline lỗi, tắt mic và nghỉ tăng dần.
+_CHO_O_CHON_GIAY = 30.0
+#: ffmpeg xuất PCM ĐỀU kể cả lúc phòng yên — ngần này giây không có byte nào là luồng đứng
+#: (đứt mà không đóng). Đo thật 26/09/2026: vệ tinh "idle" hàng giờ, go2rtc không còn kết
+#: nối nào của HA, log không một dòng — không có đồng hồ này thì không ai biết.
+_MIC_IM_GIAY = 10.0
 
 
 def loc_mic(tang_db: float) -> str:
@@ -90,15 +100,21 @@ class DahuaTalkSatellite(DahuaTalkEntity, AssistSatelliteEntity):
 
     # ── Cấu hình HA đòi ───────────────────────────────────────────────────────
 
+    def _o_chon(self, khoa: str) -> str | None:
+        """Mã ô chọn — chỉ khi nó ĐÃ có giá trị. "unavailable"/"unknown" thì None để HA dùng
+        mặc định thay vì ném lỗi làm hỏng lượt nghe (xem `_CHO_O_CHON_GIAY`)."""
+        ma = er.async_get(self.hass).async_get_entity_id(
+            "select", DOMAIN, f"{self._entry.entry_id}-{khoa}")
+        st = self.hass.states.get(ma) if ma else None
+        return ma if st is not None and st.state not in (STATE_UNAVAILABLE, STATE_UNKNOWN) else None
+
     @property
     def pipeline_entity_id(self) -> str | None:
-        return er.async_get(self.hass).async_get_entity_id(
-            "select", DOMAIN, f"{self._entry.entry_id}-pipeline")
+        return self._o_chon("pipeline")
 
     @property
     def vad_sensitivity_entity_id(self) -> str | None:
-        return er.async_get(self.hass).async_get_entity_id(
-            "select", DOMAIN, f"{self._entry.entry_id}-vad_sensitivity")
+        return self._o_chon("vad_sensitivity")
 
     @property
     def tts_options(self) -> dict[str, Any] | None:
@@ -161,7 +177,16 @@ class DahuaTalkSatellite(DahuaTalkEntity, AssistSatelliteEntity):
 
     # ── Tai ───────────────────────────────────────────────────────────────────
 
+    async def _cho_o_chon(self) -> None:
+        """Đợi hai ô chọn của vệ tinh có giá trị — lượt đầu mà dùng mặc định thì chạy nhầm
+        pipeline ưu tiên (lượt chờ từ gọi kéo dài hàng giờ)."""
+        het = self.hass.loop.time() + _CHO_O_CHON_GIAY
+        while self.hass.loop.time() < het and (
+                self.pipeline_entity_id is None or self.vad_sensitivity_entity_id is None):
+            await asyncio.sleep(0.5)
+
     async def _chay(self) -> None:
+        await self._cho_o_chon()
         mic = self._entry.async_create_background_task(self.hass, self._doc_mic(),
                                                        f"{self.entity_id} mic")
         # Pipeline hỏng NGAY từ đầu (chưa có engine từ gọi, STT/TTS lỗi…) kết thúc
@@ -226,38 +251,54 @@ class DahuaTalkSatellite(DahuaTalkEntity, AssistSatelliteEntity):
             yield khuc
 
     async def _doc_mic(self) -> None:
-        """ffmpeg đọc mic camera liên tục; đứt (camera rớt mạng…) thì mở lại."""
+        """ffmpeg đọc mic camera liên tục; đứt hay ĐỨNG (camera rớt mạng…) thì mở lại.
+        Lỗi bất ngờ ghi log rồi thử lại — vòng này chết là vệ tinh điếc mà không ai biết."""
         while True:
-            await self._duoc_nghe.wait()
-            lenh = [get_ffmpeg_manager(self.hass).binary, "-nostdin", "-hide_banner",
-                    "-loglevel", "error"]
-            if self._data.mic_url.lower().startswith("rtsp://"):
-                lenh += ["-rtsp_transport", "tcp"]
-            lenh += ["-i", self._data.mic_url, "-vn", "-af", loc_mic(self._data.mic_gain_db),
-                     "-ac", "1", "-ar", str(MIC_RATE), "-f", "s16le", "pipe:"]
-            proc = self._mic_proc = await asyncio.create_subprocess_exec(
-                *lenh, stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.DEVNULL)
             try:
-                while True:
-                    khuc = await proc.stdout.readexactly(MIC_CHUNK)
-                    if self._dang_noi or self._data.mic_muted:
-                        continue
-                    if self._hang.full():
-                        self._hang.get_nowait()      # tụt hậu thì bỏ khúc cũ nhất
-                    self._hang.put_nowait(khuc)
-            except asyncio.IncompleteReadError:
-                if not self._mo_lai_mic:
-                    _LOGGER.warning("%s: mic stream ended, reopening", self.entity_id)
-            finally:
-                if proc.returncode is None:
-                    proc.kill()
-                await proc.wait()
-            # Tự tắt để đổi mức tăng mic thì mở lại ngay; đứt thật thì nghỉ 2 giây.
-            if self._mo_lai_mic:
-                self._mo_lai_mic = False
-            else:
+                await self._mot_lan_doc_mic()
+            except asyncio.CancelledError:
+                raise
+            except Exception:  # noqa: BLE001
+                _LOGGER.exception("%s: mic reader failed, reopening", self.entity_id)
                 await asyncio.sleep(2)
+
+    async def _mot_lan_doc_mic(self) -> None:
+        """Một lần mở ffmpeg, đọc tới khi luồng đứt / đứng / bị tắt."""
+        await self._duoc_nghe.wait()
+        lenh = [get_ffmpeg_manager(self.hass).binary, "-nostdin", "-hide_banner",
+                "-loglevel", "error"]
+        if self._data.mic_url.lower().startswith("rtsp://"):
+            lenh += ["-rtsp_transport", "tcp"]
+        lenh += ["-i", self._data.mic_url, "-vn", "-af", loc_mic(self._data.mic_gain_db),
+                 "-ac", "1", "-ar", str(MIC_RATE), "-f", "s16le", "pipe:"]
+        proc = self._mic_proc = await asyncio.create_subprocess_exec(
+            *lenh, stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.DEVNULL)
+        try:
+            while True:
+                try:
+                    khuc = await asyncio.wait_for(proc.stdout.readexactly(MIC_CHUNK), _MIC_IM_GIAY)
+                except TimeoutError:
+                    _LOGGER.warning("%s: no audio from mic for %.0f s, reopening",
+                                    self.entity_id, _MIC_IM_GIAY)
+                    break
+                if self._dang_noi or self._data.mic_muted:
+                    continue
+                if self._hang.full():
+                    self._hang.get_nowait()      # tụt hậu thì bỏ khúc cũ nhất
+                self._hang.put_nowait(khuc)
+        except asyncio.IncompleteReadError:
+            if not self._mo_lai_mic:
+                _LOGGER.warning("%s: mic stream ended, reopening", self.entity_id)
+        finally:
+            if proc.returncode is None:
+                proc.kill()
+            await proc.wait()
+        # Tự tắt để đổi mức tăng mic thì mở lại ngay; đứt / đứng thật thì nghỉ 2 giây.
+        if self._mo_lai_mic:
+            self._mo_lai_mic = False
+        else:
+            await asyncio.sleep(2)
 
     # ── Miệng ─────────────────────────────────────────────────────────────────
 

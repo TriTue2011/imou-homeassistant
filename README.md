@@ -13,7 +13,7 @@ Mỗi camera thêm vào sinh ra:
 |---|---|
 | `media_player.<camera>_speaker` | `tts.speak`, `media_player.play_media` (tệp, URL, media source) ra loa camera. |
 | `assist_satellite.<camera>` | Nghe mic camera, chạy pipeline Assist (từ gọi → nhận giọng → hiểu lệnh → đọc trả lời), trả lời ra loa camera. Câu trả lời là câu hỏi lại thì nghe tiếp luôn, không cần gọi lại từ gọi. `assist_satellite.announce` / `start_conversation` phát ra loa. |
-| `number.<camera>_microphone_gain` | Khuếch đại mic 0–30 dB trước khi đưa vào Assist (mic camera nhỏ). |
+| `number.<camera>_microphone_gain` | Khuếch đại mic 0–30 dB trước khi đưa vào Assist. Bắt đầu ở **0 dB**. |
 | `switch.<camera>_mute_microphone` | Tắt nghe (loa, thông báo, bộ đàm vẫn chạy). |
 | `select.<camera>_assistant` | Chọn pipeline Assist (từ gọi, STT, TTS, tác tử). |
 | `select.<camera>_finished_speaking_detection` | Độ nhạy nhận biết đã nói xong. |
@@ -193,10 +193,12 @@ add-on openWakeWord (thư mục `share/openwakeword`) rồi chọn trong pipelin
 Kinh nghiệm đo thật với camera trong nhà:
 
 - **Tắt Noise Filter trên camera** — [xem trên](#-lọc-ồn-làm-hỏng-từ-gọi-và-nhận-giọng).
-- **Tăng mic:** mic camera nhỏ (phòng yên chỉ -46…-51 dBFS). Ngồi cách 3 m phải nói to
-  mới bắt được từ gọi; `number.<camera>_microphone_gain` **+12 đến +18 dB** là mức hợp lý.
+- **Tăng mic: bắt đầu ở 0 dB**, chỉ tăng khi nói từ xa mà không bắt được. Tăng quá tay
+  thì giọng nói bình thường bị ép vỡ và từ gọi **trượt nhiều hơn**. Đo thật (Imou, nói
+  cách camera vài mét, tiếng -19…-25 dBFS): `okay_nabu` vượt ngưỡng **5/6 lần ở 0 dB**,
+  2/6 ở +20 dB, 1/6 ở +30 dB. Ngồi xa 3 m nói nhỏ (-46…-51 dBFS) thì +12…+18 dB mới đủ.
   Tích hợp luôn lọc bỏ độ lệch một chiều (DC) của mic camera **trước** khi tăng, và
-  chặn đỉnh để nói gần không vỡ tiếng. Đổi mức là áp ngay.
+  chặn đỉnh. Đổi mức là áp ngay.
 - **Từ gọi tiếng Anh với giọng Việt ở xa:** các mô hình có sẵn (`okay_nabu`,
   `hey_jarvis`) được huấn luyện bằng giọng Anh; với giọng Việt qua mic camera cách
   3 m chúng bắt rất kém. Gần mic thì được. Từ gọi tiếng Việt cần mô hình tự huấn
@@ -735,7 +737,10 @@ xem go2rtc của HA. Không khai camera trong mục `go2rtc:` của Frigate nữ
 | Dòng `exec` gọi HA ra `401` | Sai khoá / camera đã xoá rồi thêm lại | Lấy lại dòng bằng `dahua_talk.get_intercom_source`. |
 | Dòng `exec` không kết nối được HA | Sai `ha_url` (thường: `127.0.0.1` trong khi go2rtc ở máy/container khác) | [Bảng chọn `ha_url`](#chọn-ha_url-theo-cách-bạn-cài). |
 | Từ gọi không bắt / STT mất chữ | Noise Filter của camera đang bật | Tắt Noise Filter trong SmartPSS. |
-| Phải nói rất to mới bắt từ gọi | Mic camera nhỏ | `number.<camera>_microphone_gain` +12…+18 dB. |
+| Phải nói rất to mới bắt từ gọi | Mic camera nhỏ, ngồi xa | `number.<camera>_microphone_gain` +12…+18 dB — tăng dần, thử từng mức. |
+| Trước bắt được, tăng mic lên thì gọi mãi không ăn | Tăng quá tay, tiếng vỡ | Hạ `number.<camera>_microphone_gain` về **0 dB** rồi tăng dần. |
+| Vệ tinh đứng `idle` hàng giờ, gọi không ăn, log trống (bản ≤ 0.2.3) | Luồng mic đứng (nối mà không ra tiếng), hoặc nạp lại tích hợp gặp ô chọn còn `unavailable` | Cập nhật ≥ 0.2.4: tự mở lại luồng mic (log `no audio from mic … reopening`) và đợi ô chọn sẵn sàng. Tạm thời: **Tải lại** tích hợp. |
+| Nút thử trong *Trợ lý giọng nói* báo `Wake word was not detected (wake-word-timeout)` | Nút thử chỉ nghe tới khi có 3 giây im lặng | Bấm xong nói từ gọi **ngay**. Lỗi này không liên quan tới camera. |
 | `okay_nabu` / `hey_jarvis` không bắt khi ngồi xa | Mô hình giọng Anh, giọng Việt ở xa | Nói gần hơn, hoặc mô hình từ gọi tiếng Việt tự huấn luyện. |
 | Thêm camera báo sai mật khẩu dù đúng | Camera đang khoá đăng nhập sau nhiều lần sai | Chờ vài phút (hoặc khởi động lại camera) rồi thử **một** lần. |
 | WebRTC không có hình | Luồng chính H.265 | Đổi luồng chính sang H.264 trong SmartPSS. |

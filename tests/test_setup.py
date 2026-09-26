@@ -237,3 +237,73 @@ async def test_pipeline_loi_thi_dung_doc_mic_trong_luc_nghi(hass):
         await hass.config_entries.async_unload(muc.entry_id)
     assert so_mo == 1, f"mở ffmpeg {so_mo} lần trong lúc nghỉ"
     assert con_chay == [], "đang nghỉ vì pipeline lỗi mà ffmpeg vẫn đọc mic"
+
+
+async def test_o_chon_chua_san_sang_thi_ha_dung_mac_dinh(hass):
+    """Sự cố thật 26/09/2026: nạp lại tích hợp, lượt nghe đầu đọc ô chọn còn "unavailable"
+    → HA ném "'unavailable' is not a valid VadSensitivity", vệ tinh tắt mic nghỉ tăng dần."""
+    muc = _muc()
+    await _nap(hass, muc)
+    reg = er.async_get(hass)
+    sat_id = next(e.entity_id for e in er.async_entries_for_config_entry(reg, muc.entry_id)
+                  if e.domain == "assist_satellite")
+    vad = next(e.entity_id for e in er.async_entries_for_config_entry(reg, muc.entry_id)
+               if e.unique_id.endswith("-vad_sensitivity"))
+    sat = hass.data["entity_components"]["assist_satellite"].get_entity(sat_id)
+    assert sat.vad_sensitivity_entity_id == vad
+    hass.states.async_set(vad, "unavailable")
+    assert sat.vad_sensitivity_entity_id is None
+    assert sat._resolve_vad_sensitivity() > 0          # HA dùng mặc định, không ném lỗi
+
+
+async def test_mic_dung_im_thi_mo_lai(hass, caplog):
+    """Sự cố thật 26/09/2026: ffmpeg nối mà không ra byte nào — vệ tinh điếc hàng giờ, log
+    trống. Quá `_MIC_IM_GIAY` không có tiếng thì mở lại và ghi cảnh báo."""
+    muc = _muc(mic="http://mic")
+    lenh_da_chay: list[list[str]] = []
+
+    class ProcDung:
+        def __init__(self):
+            self.returncode = None
+            self.stdout = self
+
+        async def readexactly(self, n):
+            await asyncio.Event().wait()                  # đứng: không byte, không đóng
+
+        def kill(self):
+            self.returncode = -9
+
+        async def wait(self):
+            return self.returncode
+
+    that = asyncio.create_subprocess_exec
+
+    async def exec_gia(*lenh, **kw):
+        if "-af" not in lenh:
+            return await that(*lenh, **kw)
+        lenh_da_chay.append(list(lenh))
+        return ProcDung()
+
+    async def accept_gia(self, audio_stream, **_kw):
+        await asyncio.Event().wait()
+
+    from custom_components.dahua_talk import assist_satellite as sat
+    with mock.patch.object(sat.asyncio, "create_subprocess_exec", exec_gia), \
+            mock.patch.object(sat, "_MIC_IM_GIAY", 0.05), \
+            mock.patch.object(sat.asyncio, "sleep", _ngu_nhanh(asyncio.sleep)), \
+            mock.patch.object(sat.DahuaTalkSatellite, "async_accept_pipeline_from_satellite", accept_gia):
+        await _nap(hass, muc)
+        for _ in range(200):
+            if len(lenh_da_chay) >= 2:
+                break
+            await asyncio.sleep(0.01)
+        await hass.config_entries.async_unload(muc.entry_id)
+    assert len(lenh_da_chay) >= 2, "luồng đứng phải được mở lại"
+    assert "no audio from mic" in caplog.text
+
+
+def _ngu_nhanh(ngu_that):
+    """asyncio.sleep rút ngắn cho vòng mở lại mic (nghỉ 2 s) — không đụng các sleep ≤ 0,05 s."""
+    async def ngu(giay, *a, **k):
+        return await ngu_that(min(giay, 0.01), *a, **k)
+    return ngu

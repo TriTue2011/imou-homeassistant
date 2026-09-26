@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.2.4 - 2026-09-26
+
+### Vệ tinh Assist không còn điếc im lặng
+Sự cố thật: vệ tinh đứng `idle` hàng giờ, gọi từ gọi không ăn, log không một dòng.
+- **Luồng mic đứng** (ffmpeg nối mà không ra byte nào): ffmpeg xuất PCM đều kể cả lúc phòng
+  yên, nên quá 10 giây không có tiếng là luồng hỏng → tự mở lại, log
+  `no audio from mic for 10 s, reopening`. Lỗi bất ngờ trong vòng đọc mic cũng chỉ ghi log
+  rồi thử lại, không làm chết vòng đọc.
+- **Nạp lại tích hợp**: vệ tinh chạy trước hai ô chọn của chính nó, lượt nghe đầu gặp
+  `'unavailable' is not a valid VadSensitivity`, tắt mic và nghỉ tăng dần. Nay đợi ô chọn
+  pipeline / độ nhạy có giá trị (tối đa 30 giây, quá thì dùng mặc định).
+
+### README: tăng mic bắt đầu ở 0 dB
+Đo thật: nói cách camera vài mét, `okay_nabu` vượt ngưỡng 5/6 lần ở 0 dB, 2/6 ở +20 dB, 1/6 ở
++30 dB — tăng quá tay làm vỡ tiếng. Chỉ tăng khi nói từ xa mà không bắt được.
+
 ## 0.2.3 - 2026-09-26
 
 ### Đổi tên hiển thị thành **Assist Camera**

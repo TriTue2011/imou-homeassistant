@@ -49,7 +49,8 @@ class DahuaTalkData:
     mic_url: str
     mic_muted: bool = False
     #: Khuếch đại mic (dB) trước khi đưa vào pipeline — mic camera nhỏ, nói cách
-    #: 3 m không tới ngưỡng từ gọi (đo thật: phải +18 dB).
+    #: 3 m không tới ngưỡng từ gọi (đo thật: phải +18 dB). Nói gần thì 0 dB tốt hơn hẳn (đo
+    #: 26/09/2026: okay_nabu 5/6 lần ở 0 dB, 1/6 ở +30 dB) — nên mặc định 0.
     mic_gain_db: float = 0.0
     _nghe_doi: list = field(default_factory=list)
     _nghe_tang: list = field(default_factory=list)
