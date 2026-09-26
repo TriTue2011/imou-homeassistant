@@ -30,7 +30,7 @@ async def test_du_thuc_the_cua_mot_camera(hass):
     await _nap(hass, muc)
     reg = er.async_get(hass)
     loai = sorted(e.entity_id.split(".")[0] for e in er.async_entries_for_config_entry(reg, muc.entry_id))
-    assert loai == ["assist_satellite", "media_player", "number", "select", "select", "switch"]
+    assert loai == ["assist_satellite", "media_player", "number", "select", "select", "switch", "switch"]
 
 
 async def test_loa_phat_url_va_tat_mic(hass):
@@ -40,7 +40,7 @@ async def test_loa_phat_url_va_tat_mic(hass):
     mp = next(e.entity_id for e in er.async_entries_for_config_entry(reg, muc.entry_id)
               if e.domain == "media_player")
     sw = next(e.entity_id for e in er.async_entries_for_config_entry(reg, muc.entry_id)
-              if e.domain == "switch")
+              if e.domain == "switch" and e.unique_id.endswith("-mute"))
     with mock.patch.object(muc.runtime_data.speaker, "async_play_url", return_value=1.0) as phat:
         await hass.services.async_call("media_player", "play_media", {
             "entity_id": mp, "media_content_id": "http://x/a.mp3", "media_content_type": "music"},
@@ -307,3 +307,41 @@ def _ngu_nhanh(ngu_that):
     async def ngu(giay, *a, **k):
         return await ngu_that(min(giay, 0.01), *a, **k)
     return ngu
+
+
+async def test_bat_duoc_tu_goi_thi_loa_keu_ting(hass):
+    """Chủ máy 26/09/2026: "khi nó wake up thì có tiếng ting để người dùng còn biết để giao
+    tiếp". Tắt công tắc thì im; lượt kết thúc mà KHÔNG bắt được thì im."""
+    from custom_components.dahua_talk import assist_satellite as sat
+
+    pcm = sat.tieng_ting()
+    assert 0.25 < len(pcm) / 2 / 8000 < 0.4, "ngắn: camera tắt mic lúc loa phát"
+    muc = _muc()
+    await _nap(hass, muc)
+    reg = er.async_get(hass)
+    ma = next(e.entity_id for e in er.async_entries_for_config_entry(reg, muc.entry_id)
+              if e.domain == "assist_satellite")
+    ting = next(e.entity_id for e in er.async_entries_for_config_entry(reg, muc.entry_id)
+                if e.unique_id.endswith("-wake_sound"))
+    assert hass.states.get(ting).state == "on", "mặc định bật"
+    ve_tinh = hass.data["entity_components"]["assist_satellite"].get_entity(ma)
+    phat: list[bytes] = []
+
+    async def play_gia(chunks):
+        phat.append(b"".join([c async for c in chunks]))
+        assert ve_tinh._dang_noi, "trong lúc kêu phải bỏ tiếng mic"
+        return 0.3
+
+    with mock.patch.object(muc.runtime_data.speaker, "async_play_pcm", play_gia):
+        ve_tinh.on_pipeline_event(PipelineEvent(PipelineEventType.WAKE_WORD_END, {"wake_word_output": {}}))
+        await hass.async_block_till_done()
+        assert phat == [], "không bắt được thì không kêu"
+        ve_tinh.on_pipeline_event(PipelineEvent(
+            PipelineEventType.WAKE_WORD_END, {"wake_word_output": {"wake_word_id": "okay_nabu"}}))
+        await hass.async_block_till_done()
+        assert phat == [pcm] and not ve_tinh._dang_noi
+        await hass.services.async_call("switch", "turn_off", {"entity_id": ting}, blocking=True)
+        ve_tinh.on_pipeline_event(PipelineEvent(
+            PipelineEventType.WAKE_WORD_END, {"wake_word_output": {"wake_word_id": "okay_nabu"}}))
+        await hass.async_block_till_done()
+        assert len(phat) == 1

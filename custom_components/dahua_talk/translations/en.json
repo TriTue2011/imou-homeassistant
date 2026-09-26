@@ -91,6 +91,9 @@
     "switch": {
       "mute": {
         "name": "Mute microphone"
+      },
+      "wake_sound": {
+        "name": "Wake sound"
       }
     },
     "media_player": {

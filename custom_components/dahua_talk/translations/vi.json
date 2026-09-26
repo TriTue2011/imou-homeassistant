@@ -91,6 +91,9 @@
     "switch": {
       "mute": {
         "name": "Tắt mic"
+      },
+      "wake_sound": {
+        "name": "Tiếng ting khi gọi"
       }
     },
     "media_player": {

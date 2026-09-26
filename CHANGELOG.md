@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.5 - 2026-09-26
+
+### Tiếng "ting" khi bắt được từ gọi
+Camera không có đèn báo như loa thông minh: gọi xong không biết nó đã nghe chưa. Nay bắt được
+từ gọi thì loa camera kêu hai nốt ngắn (~0,3 s) — nghe "ting" rồi nói. Ngắn có chủ ý: camera
+tự tắt mic lúc loa đang phát; trong lúc kêu, vệ tinh cũng bỏ tiếng mic để tiếng báo không lọt
+vào câu lệnh. Tắt được bằng `switch.<camera>_wake_sound` ("Tiếng ting khi gọi").
+
+Vệ tinh đợi ô chọn sẵn sàng theo nhịp 0,1 s (0.2.4 là 0,5 s — mic mở chậm không cần thiết).
+
 ## 0.2.4 - 2026-09-26
 
 ### Vệ tinh Assist không còn điếc im lặng

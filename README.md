@@ -14,6 +14,7 @@ Mỗi camera thêm vào sinh ra:
 | `media_player.<camera>_speaker` | `tts.speak`, `media_player.play_media` (tệp, URL, media source) ra loa camera. |
 | `assist_satellite.<camera>` | Nghe mic camera, chạy pipeline Assist (từ gọi → nhận giọng → hiểu lệnh → đọc trả lời), trả lời ra loa camera. Câu trả lời là câu hỏi lại thì nghe tiếp luôn, không cần gọi lại từ gọi. `assist_satellite.announce` / `start_conversation` phát ra loa. |
 | `number.<camera>_microphone_gain` | Khuếch đại mic 0–30 dB trước khi đưa vào Assist. Bắt đầu ở **0 dB**. |
+| `switch.<camera>_wake_sound` | Bắt được từ gọi thì loa camera kêu **"ting"** (~0,3 s) — biết là nói được. Mặc định bật. |
 | `switch.<camera>_mute_microphone` | Tắt nghe (loa, thông báo, bộ đàm vẫn chạy). |
 | `select.<camera>_assistant` | Chọn pipeline Assist (từ gọi, STT, TTS, tác tử). |
 | `select.<camera>_finished_speaking_detection` | Độ nhạy nhận biết đã nói xong. |

@@ -18,5 +18,5 @@
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/TriTue2011/imou-homeassistant/issues",
   "requirements": [],
-  "version": "0.2.4"
+  "version": "0.2.5"
 }

@@ -16,6 +16,8 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import math
+import struct
 from typing import Any
 
 from homeassistant.components import tts
@@ -54,6 +56,21 @@ _CHO_O_CHON_GIAY = 30.0
 #: (đứt mà không đóng). Đo thật 26/09/2026: vệ tinh "idle" hàng giờ, go2rtc không còn kết
 #: nối nào của HA, log không một dòng — không có đồng hồ này thì không ai biết.
 _MIC_IM_GIAY = 10.0
+
+
+def tieng_ting(tan_so: int = 8000) -> bytes:
+    """Hai nốt ngắn đi lên (Đô 6 → Son 6, ~0,3 s) PCM16 mono — báo "đã nghe, nói đi".
+
+    Ngắn có chủ ý: camera tự TẮT MIC lúc loa đang phát (đo thật trên Imou và EZVIZ), tiếng
+    báo dài là nuốt mất đầu câu lệnh. Sinh bằng mã, không cần tệp âm thanh."""
+    ra = bytearray()
+    for hz, giay in ((1047.0, 0.12), (1568.0, 0.18)):
+        n = int(tan_so * giay)
+        mem = int(tan_so * 0.01)                         # 10 ms vào/ra — khỏi tiếng "bụp"
+        for i in range(n):
+            bao = min(1.0, i / mem, (n - 1 - i) / mem)
+            ra += struct.pack("<h", int(0.35 * 32767 * bao * math.sin(2 * math.pi * hz * i / tan_so)))
+    return bytes(ra)
 
 
 def loc_mic(tang_db: float) -> str:
@@ -183,7 +200,7 @@ class DahuaTalkSatellite(DahuaTalkEntity, AssistSatelliteEntity):
         het = self.hass.loop.time() + _CHO_O_CHON_GIAY
         while self.hass.loop.time() < het and (
                 self.pipeline_entity_id is None or self.vad_sensitivity_entity_id is None):
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.1)
 
     async def _chay(self) -> None:
         await self._cho_o_chon()
@@ -303,7 +320,12 @@ class DahuaTalkSatellite(DahuaTalkEntity, AssistSatelliteEntity):
     # ── Miệng ─────────────────────────────────────────────────────────────────
 
     def on_pipeline_event(self, event: PipelineEvent) -> None:
-        if event.type is PipelineEventType.INTENT_END:
+        if event.type is PipelineEventType.WAKE_WORD_END:
+            # Bắt được từ gọi (output rỗng là luồng tiếng kết thúc mà không bắt được).
+            if (event.data or {}).get("wake_word_output") and self._data.ting:
+                self._entry.async_create_background_task(
+                    self.hass, self._phat_ting(), f"{self.entity_id} ting")
+        elif event.type is PipelineEventType.INTENT_END:
             ra = (event.data or {}).get("intent_output") or {}
             self._tiep = bool(ra.get("continue_conversation"))
         elif event.type is PipelineEventType.TTS_END:
@@ -322,6 +344,21 @@ class DahuaTalkSatellite(DahuaTalkEntity, AssistSatelliteEntity):
             d = event.data or {}
             self._loi_luot = str(d.get("message") or d.get("code") or "error")
             self._tts_xong.set()
+
+    async def _phat_ting(self) -> None:
+        """Tiếng báo đã bắt được từ gọi. Trong lúc kêu thì bỏ tiếng mic (như lúc trả lời) —
+        tiếng ting không được lọt vào câu lệnh."""
+        self._dang_noi = True
+        try:
+            pcm = tieng_ting()
+
+            async def _mot():
+                yield pcm
+            await self._data.speaker.async_play_pcm(_mot())
+        except (TalkError, OSError) as exc:
+            _LOGGER.debug("%s: cannot play wake sound: %s", self.entity_id, exc)
+        finally:
+            self._dang_noi = False
 
     async def _phat_tts(self, luong: tts.ResultStream) -> None:
         self._dang_noi = True
