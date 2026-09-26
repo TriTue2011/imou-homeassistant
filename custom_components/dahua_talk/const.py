@@ -1,4 +1,4 @@
-"""Hằng số của tích hợp Dahua/Imou Talk."""
+"""Hằng số của tích hợp Assist Camera."""
 
 DOMAIN = "dahua_talk"
 

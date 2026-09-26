@@ -1,6 +1,6 @@
 # EZVIZ (và Hikvision, camera ONVIF có loa) — loa, bộ đàm, vệ tinh Assist
 
-Tích hợp **Dahua/Imou Talk** từ bản **0.2.0** nói được với camera **EZVIZ** qua **kênh
+Tích hợp **Assist Camera** từ bản **0.2.0** nói được với camera **EZVIZ** qua **kênh
 tiếng ngược RTSP/ONVIF** — cùng các thực thể như camera Imou: loa (`tts.speak`), vệ tinh
 Assist, bộ đàm qua thẻ WebRTC. Chạy hoàn toàn trong mạng nhà, **không qua đám mây EZVIZ**,
 không cần tài khoản nhà phát triển EZVIZ.
@@ -50,7 +50,7 @@ có kênh ngược.
 
 ## Thêm camera vào tích hợp
 
-Cài đặt → Thiết bị & dịch vụ → **Thêm tích hợp** → **Dahua/Imou Talk** → chọn loại
+Cài đặt → Thiết bị & dịch vụ → **Thêm tích hợp** → **Assist Camera** → chọn loại
 **EZVIZ**. Chỉ phải điền:
 
 | Ô | Điền |

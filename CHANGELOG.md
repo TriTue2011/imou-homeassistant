@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.3 - 2026-09-26
+
+### Đổi tên hiển thị thành **Assist Camera**
+Tích hợp không còn chỉ cho Dahua/Imou (có EZVIZ, Hikvision, camera ONVIF). Mã tích hợp vẫn
+là `dahua_talk`: đổi mã là mọi camera, thực thể, automation và dòng `exec` trong
+`go2rtc.yaml` đã cài phải làm lại — nên chỉ đổi tên hiển thị.
+
 ## 0.2.2 - 2026-09-26
 
 ### EZVIZ: tick "Nghe mic camera" thay vì gõ URL mic

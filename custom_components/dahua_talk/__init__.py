@@ -1,4 +1,4 @@
-"""Dahua/Imou Talk — mic và loa của camera Dahua/Imou thành vệ tinh Assist và loa trong HA.
+"""Assist Camera (mã dahua_talk) — mic và loa camera (Imou/Dahua, EZVIZ, ONVIF) thành vệ tinh Assist và loa trong HA.
 
 Mỗi camera là một mục cấu hình, sinh ra:
 
@@ -90,7 +90,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         rec = er.async_get(hass).async_get(entity_id)
         entry = hass.config_entries.async_get_entry(rec.config_entry_id) if rec else None
         if entry is None or entry.domain != DOMAIN:
-            raise ServiceValidationError(f"{entity_id} is not a Dahua/Imou Talk entity")
+            raise ServiceValidationError(f"{entity_id} is not an Assist Camera entity")
         return {"source": go2rtc_source(hass, entry.entry_id, entry.data[CONF_INTERCOM_KEY],
                                         call.data.get("ha_url", ""))}
 

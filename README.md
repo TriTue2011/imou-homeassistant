@@ -1,4 +1,4 @@
-# Imou / Dahua cho Home Assistant — loa, bộ đàm, vệ tinh Assist
+# Assist Camera — loa, bộ đàm, vệ tinh Assist cho camera Imou / Dahua / EZVIZ / ONVIF
 
 Biến mic và loa của camera **Imou / Dahua** thành **loa**, **bộ đàm** (nói qua camera
 bằng mic điện thoại, như app Imou) và **vệ tinh Assist** ngay trong Home Assistant —
@@ -17,6 +17,9 @@ Mỗi camera thêm vào sinh ra:
 | `switch.<camera>_mute_microphone` | Tắt nghe (loa, thông báo, bộ đàm vẫn chạy). |
 | `select.<camera>_assistant` | Chọn pipeline Assist (từ gọi, STT, TTS, tác tử). |
 | `select.<camera>_finished_speaking_detection` | Độ nhạy nhận biết đã nói xong. |
+
+Tên hiển thị là **Assist Camera** (từ 0.2.3; trước là *Dahua/Imou Talk*). Mã tích hợp vẫn là
+`dahua_talk` — giữ nguyên để camera, thực thể và dòng go2rtc đã cài không phải làm lại.
 
 Và dịch vụ `dahua_talk.get_intercom_source` — trả dòng cấu hình go2rtc cho **bộ đàm**.
 
@@ -110,12 +113,12 @@ không đều được.
 
 **HACS (khuyên dùng):** HACS → ⋮ → Custom repositories → thêm
 `https://github.com/TriTue2011/imou-homeassistant`, loại **Integration** → tìm
-**Dahua/Imou Talk** → Tải xuống → khởi động lại HA.
+**Assist Camera** → Tải xuống → khởi động lại HA.
 
 **Chép tay:** chép thư mục `custom_components/dahua_talk` vào
 `/config/custom_components/dahua_talk` rồi khởi động lại HA.
 
-Sau đó: Cài đặt → Thiết bị & dịch vụ → Thêm tích hợp → **Dahua/Imou Talk**, mỗi
+Sau đó: Cài đặt → Thiết bị & dịch vụ → Thêm tích hợp → **Assist Camera**, mỗi
 camera một lần. Bước đầu **chọn loại camera** — mỗi loại chỉ hỏi đúng ô nó cần:
 
 | Loại | Hỏi những ô |
@@ -136,7 +139,7 @@ Các ô của Imou / Dahua:
 
 HA phải tới được camera ở cổng 37777 (cùng mạng LAN là đủ).
 
-**Sửa sau khi thêm** (từ 0.1.3): Thiết bị & dịch vụ → Dahua/Imou Talk → ⋮ cạnh camera →
+**Sửa sau khi thêm** (từ 0.1.3): Thiết bị & dịch vụ → Assist Camera → ⋮ cạnh camera →
 **Cấu hình lại** — đổi IP, tài khoản, mật khẩu (để trống = giữ cũ) hay *URL tiếng mic*.
 **Khoá bộ đàm giữ nguyên**, dòng go2rtc không phải chép lại. Đổi tên thì dùng **Đổi tên**
 trong cùng menu.
@@ -596,7 +599,7 @@ mạng nhà ra internet qua VPN** bằng mangle; máy HA có thêm card mạng *
 ### Cài đặt
 
 1. **Tích hợp:** HACS → Custom repositories → thêm repo này (Integration) → tải
-   **Dahua/Imou Talk** → khởi động lại HA → Thêm tích hợp, mỗi camera một lần. *URL
+   **Assist Camera** → khởi động lại HA → Thêm tích hợp, mỗi camera một lần. *URL
    tiếng mic* **để trống** nếu chỉ cần loa + bộ đàm.
 2. **Thử loa:** `tts.speak` tới `media_player.<camera>_speaker`.
 3. **Dòng bộ đàm:** `dahua_talk.get_intercom_source` với `ha_url` **để trống**
