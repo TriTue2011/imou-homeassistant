@@ -191,6 +191,10 @@ phát trước, cái sau chờ.
 ở `select.<camera>_assistant`. Từ gọi riêng: thêm mô hình openWakeWord tuỳ chỉnh vào
 add-on openWakeWord (thư mục `share/openwakeword`) rồi chọn trong pipeline.
 
+**Từ gọi tiếng Việt «Trợ lý»:** [`wakeword/tro_ly.tflite`](wakeword/) — `okay_nabu` học từ giọng
+tiếng Anh nên hay trượt với giọng Việt qua mic camera; «Trợ lý» bắt 4/4 lần gọi qua mic camera,
+không thức nhầm với tiếng sinh hoạt trong phòng. Cách cài và số đo ở [wakeword/README.md](wakeword/README.md).
+
 Kinh nghiệm đo thật với camera trong nhà:
 
 - **Tắt Noise Filter trên camera** — [xem trên](#-lọc-ồn-làm-hỏng-từ-gọi-và-nhận-giọng).
