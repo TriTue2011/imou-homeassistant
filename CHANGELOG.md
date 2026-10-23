@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.4 - 2026-10-24
+
+- Icon riêng cho tích hợp trong Home Assistant (`brand/`: camera dome kèm bong bóng thoại, có bản cho nền tối).
+  Home Assistant có hỗ trợ thư mục `brand/` tự nạp (đã thấy trong 2026.10.3; bản cũ hơn chưa kiểm). Không đổi mã.
+
 ## 0.9.3 - 2026-10-01
 
 ### EZVIZ (HCNetSDK): camera rớt mạng giữa bài không còn "đang phát" vào kết nối chết (issue #2)
