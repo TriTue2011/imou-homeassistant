@@ -79,6 +79,7 @@ class DahuaTalkPlayer(DahuaTalkEntity, MediaPlayerEntity, RestoreEntity):
         self._noi_lai = 0
         self._vi_tri: int | None = None
         self._vi_tri_luc = None
+        self._ly_do_idle: str | None = None
 
     async def async_play_media(self, media_type: MediaType | str, media_id: str,
                                **kwargs: Any) -> None:
@@ -96,7 +97,7 @@ class DahuaTalkPlayer(DahuaTalkEntity, MediaPlayerEntity, RestoreEntity):
             if dang_phat:
                 await self.async_media_play()
             return
-        await self.async_media_stop()
+        await self._dung_han("interrupted")
         self._noi_lai = 0
         # Bài đang phát (id gốc) + vị trí: thẻ phát nhạc dựng thanh TUA từ đây (chủ máy 30/09/2026: "chế độ chỉ
         # nghe không có thanh tua nhạc").
@@ -114,7 +115,7 @@ class DahuaTalkPlayer(DahuaTalkEntity, MediaPlayerEntity, RestoreEntity):
                     thong_bao: bool = False) -> None:
         self._attr_state = MediaPlayerState.PLAYING
         self.async_write_ha_state()
-        het_bai = False
+        het_bai = loi_phat = False
         luc_mo = time.monotonic()
         try:
             await self._entry.runtime_data.speaker.async_play_url(url, huy, tu_giay)
@@ -133,12 +134,14 @@ class DahuaTalkPlayer(DahuaTalkEntity, MediaPlayerEntity, RestoreEntity):
                 return
             _LOGGER.warning("%s: cannot play to camera speaker: %s", self.entity_id, exc)
             het_bai = True
+            loi_phat = True
         finally:
             if thong_bao:
                 # Nhạc đang tạm dừng chờ phát tiếp thì báo PAUSED, đừng «idle» một nhịp: tích hợp phát nhạc (YouTube)
                 # đọc idle là HẾT BÀI rồi chuyển bài khác.
                 self._attr_state = MediaPlayerState.PAUSED if self._url is not None else MediaPlayerState.IDLE
             elif self._huy is huy and het_bai:     # bài tự hết (không phải bị dừng / thay)
+                self._ly_do_idle = "error" if loi_phat else "finished"
                 self._attr_state = MediaPlayerState.IDLE
                 self._url = self._huy = self._bai = None
                 self._xoa_bai()
@@ -159,12 +162,25 @@ class DahuaTalkPlayer(DahuaTalkEntity, MediaPlayerEntity, RestoreEntity):
         self._bai = self._huy = None
 
     async def async_media_stop(self) -> None:
-        """Dừng hẳn bài đang phát (hay đang tạm dừng)."""
+        """Dừng hẳn bài đang phát (hay đang tạm dừng): lệnh của người dùng / tự động hoá."""
+        await self._dung_han("stopped")
+
+    async def _dung_han(self, ly_do: str) -> None:
+        """Dừng hẳn rồi ghi lý do để tích hợp phát nhạc phân biệt Stop / bị bài mới thay / hết bài (``idle_reason``)."""
         await self._dung_bai()
         self._url = None
         self._xoa_bai()
+        self._ly_do_idle = ly_do
         self._attr_state = MediaPlayerState.IDLE
         self.async_write_ha_state()
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """``idle_reason``: vì sao loa đang idle (``finished`` hết bài / ``stopped`` người dùng dừng / ``interrupted`` bị bài mới
+        thay / ``error`` lỗi phát). Chỉ có khi idle; tích hợp phát nhạc (YouTube) đọc nó thay vì đoán bằng thời lượng bài."""
+        if self._attr_state == MediaPlayerState.IDLE and self._ly_do_idle:
+            return {"idle_reason": self._ly_do_idle}
+        return None
 
     async def async_media_pause(self) -> None:
         """Tạm dừng: nhớ đã phát tới giây nào để Play phát tiếp."""

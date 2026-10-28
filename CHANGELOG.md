@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.6 - 2026-10-28
+
+### Loa camera khai lý do idle (`idle_reason`)
+
+Tích hợp phát nhạc (YouTube) cần biết loa về idle vì hết bài, vì người dùng bấm Stop, vì bị bài mới thay hay vì lỗi. Hai việc đầu tạo
+ra cùng một sự kiện nên trước đây phải đoán bằng thời lượng bài. Thực thể loa camera nay khai thuộc tính `idle_reason` khi idle:
+`finished` (bài tự hết), `stopped` (lệnh dừng của người dùng/tự động hoá), `interrupted` (bài mới thay bài đang phát), `error`
+(camera từ chối/lỗi phát). Test mới `tests/test_idle_reason.py` (4 ca). Toàn bộ 99 đạt.
+
 ## 0.9.5 - 2026-10-28
 
 ### Hàng đợi tiếng nói tới camera có trần (hết nguy cơ phình RAM) và quy tắc tài nguyên
