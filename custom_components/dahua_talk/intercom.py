@@ -30,6 +30,7 @@ from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN
+from .hang_doi import NOI_QUEUE_TOI_DA_KHUC, day_bo_cu_nhat
 from .speaker import NGUONG_IM_DB, muc_db
 from .talk import TAN_SO
 
@@ -108,19 +109,19 @@ class Intercom:
                 while sum(len(p) for _t, p in self._dem[1:]) >= DEM_GIAY * self.tan_so * 2:
                     self._dem.pop(0)
                 return
-            self._hang = asyncio.Queue()
+            self._hang = asyncio.Queue(maxsize=NOI_QUEUE_TOI_DA_KHUC)
             self._viec.append(self.hass.async_create_task(self._phat(self._hang)))
             for muc in self._dem:                   # đệm đầu câu giữ đúng lúc tới của nó
-                self._hang.put_nowait(muc)
+                day_bo_cu_nhat(self._hang, muc)
             self._dem = []
-        self._hang.put_nowait((luc, pcm))
+        day_bo_cu_nhat(self._hang, (luc, pcm))
         if self._im >= IM_GIAY:
             self.stop_talking()
 
     def stop_talking(self) -> None:
         """Đóng kênh nói (camera nghe lại được). Nói tiếp thì mở lại."""
         if self._hang is not None:
-            self._hang.put_nowait(None)
+            day_bo_cu_nhat(self._hang, None)
             self._hang = None
         self._dem, self._im = [], 0.0
 

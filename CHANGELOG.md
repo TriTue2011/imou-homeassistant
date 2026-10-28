@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.5 - 2026-10-28
+
+### Hàng đợi tiếng nói tới camera có trần (hết nguy cơ phình RAM) và quy tắc tài nguyên
+
+- `intercom.py` đẩy tiếng vào một hàng đợi KHÔNG giới hạn: kênh nói tới camera tắc mà tiếng vẫn tới thì RAM tăng dần trong tiến
+  trình Home Assistant dùng chung. Nay hàng đợi có trần 400 khúc, đầy thì bỏ khúc CŨ NHẤT, dấu kết thúc luôn vào được
+  (`hang_doi.day_bo_cu_nhat`).
+- Ghi quy tắc tài nguyên `docs/QUY-TAC-TAI-NGUYEN.md` (hàng đợi có trần, không chặn vòng lặp, tiến trình con luôn dọn, mở nhanh đóng
+  nhanh, lỗi lặp nghỉ tăng dần) và test canh bằng AST `tests/test_quy_tac_tai_nguyen.py` (4 ca).
+- Đã kiểm: tiến trình con ffmpeg đều `kill()` rồi `wait()`, hàng đợi vệ tinh Assist có trần 64, bộ đệm đầu câu có trần theo giây.
+  Toàn bộ test: 95 đạt, 6 bỏ qua. Chưa kiểm trên camera thật.
+
 ## 0.9.4 - 2026-10-24
 
 - Icon riêng cho tích hợp trong Home Assistant (`brand/`: camera dome kèm bong bóng thoại, có bản cho nền tối).
