@@ -1,5 +1,7 @@
 # Assist Camera — loa, bộ đàm, vệ tinh Assist cho camera Imou / Dahua / EZVIZ / ONVIF
 
+[![Mở kho này trong HACS của bạn.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=TriTue2011&repository=imou-homeassistant&category=integration)
+
 Biến mic và loa camera thành **loa**, **bộ đàm** (nói qua camera bằng mic điện thoại) và
 **vệ tinh Assist** ngay trong Home Assistant — không cần add-on, không qua đám mây.
 
